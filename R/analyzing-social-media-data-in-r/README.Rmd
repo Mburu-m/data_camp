@@ -1,0 +1,1038 @@
+---
+title: "Social Media Data Analysis"
+author: "Mburu"
+date: "4/5/2020"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+## Power of twitter data
+The volume and velocity of tweets posted on twitter every second 
+is an indicator of the power of twitter data.
+The enormous amount of information available,
+from the tweet text and its metadata, gives great 
+scope for analyzing extracted tweets and deriving insights.
+Let's extract a 1% random sample of live tweets using 
+stream_tweets() for a 120 seconds window and save it in a data frame.
+The dimensions of the data frame will give you insights
+about the number of live tweets extracted and the number
+of columns that contain the actual tweeted text and metadata on the tweets.
+
+
+```{r}
+library(rtweet)
+library(tidyverse)
+library(data.table)
+library(knitr)
+
+api_key <- Sys.getenv("twit_key")
+api_secret_key <- Sys.getenv("twit_secret")
+
+token <- create_token(
+    app = "Moses Mburu",
+    consumer_key = api_key,
+    consumer_secret = api_secret_key, set_renv = FALSE)
+
+# Extract live tweets for 120 seconds window
+
+tweets120s <- stream_tweets("", timeout = 5)
+
+
+dim(tweets120s)
+```
+
+## Search and extract tweets
+Many functions are available in R to extract 
+twitter data for analysis.
+search_tweets() is a powerful function from 
+rtweet which is used to extract tweets based on a search query.
+The function returns a maximum of 18,000 tweets for each request posted.
+In this exercise, you will use search_tweets() to extract tweets on
+the Emmy Awards which are American awards that recognize excellence
+in the television industry, by looking for tweets containing the Emmy Awards hashtag.
+The library rtweet has been pre-loaded for this exercise.
+
+
+
+```{r}
+# Extract tweets on "#Emmyawards" and include retweets
+twts_emmy <- search_tweets("#Emmyawards", 
+                           n = 2000, 
+                           include_rts = T, 
+                           lang = "en")
+
+
+
+# View output for the first 5 columns and 10 rows
+head(twts_emmy[,1:5], 10) %>% kable
+
+```
+
+
+## Search and extract timelines
+Similar to search_tweets(), get_timeline() 
+is another function in the rtweet library that can be used to extract tweets.
+The get_timeline() function is different
+from search_tweets(). It extracts tweets posted by
+a given user to their timeline instead of searching based on a query.
+The get_timeline() function can extract upto 3200 tweets at a time.
+In this exercise, you will extract tweets posted by Cristiano Ronaldo,
+a very popular soccer player both on the field and on social media who has the @Cristiano twitter handle.
+The library rtweet has been pre-loaded for this exercise.
+
+```{r}
+get_cris <- get_timeline("@Cristiano", n = 3200)
+
+# View output for the first 5 columns and 10 rows
+head(get_cris[,1:5], 10) %>% kable()
+
+```
+
+
+
+## User interest and tweet counts
+The metadata components of extracted twitter data can be analyzed to derive insights.
+To identify twitter users who are interested in a topic, you can look at users who
+tweet often on that topic. The insights derived can be used to promote targeted products to interested users.
+In this exercise, you will identify users who have tweeted often on the topic "Artificial Intelligence".
+Tweet data on "Artificial Intelligence", extracted using search_tweets(), has been pre-loaded as tweets_ai.
+The library rtweet has been pre-loaded for this exercise.
+
+
+```{r}
+tweets_ai<- search_tweets("Artificial Intelligence", 
+                           n = 2000, 
+                           include_rts = T, 
+                           lang = "en")
+
+# Create a table of users and tweet counts for the topic
+sc_name <- table(tweets_ai$screen_name)
+
+# Sort the table in descending order of tweet counts
+sc_name_sort <- sort(sc_name, decreasing = T)
+
+# View sorted table for top 10 users
+head(sc_name_sort, 10) %>% table()
+
+
+```
+
+
+
+## Compare follower count
+The follower count for a twitter account indicates 
+the popularity of the personality or a business entity 
+and is a measure of influence in social media.
+Knowing the follower counts helps digital marketers 
+strategically position ads on popular twitter accounts for increased visibility.
+In this exercise, you will extract user data and compare followers 
+count for twitter accounts of four popular news sites: CNN, Fox News, NBC News, and New York Times.
+
+
+
+
+```{r}
+# Extract user data for the twitter accounts of 4 news sites
+users <- lookup_users(c("nytimes", "CNN", "FoxNews", "NBCNews"))
+
+# Create a data frame of screen names and follower counts
+user_df <- users[,c("screen_name","followers_count")]
+
+# Display and compare the follower counts for the 4 news sites
+user_df %>% kable()
+```
+
+## Retweet counts
+A retweet helps utilize existing content to build a following for your brand.
+The number of times a twitter text is retweeted indicates what is trending.
+The inputs gathered can be leveraged by promoting your brand using the popular retweets.
+In this exercise, you will identify tweets on "Artificial Intelligence" that have been retweeted the most.
+Tweets on "Artificial Intelligence", extracted using search_tweets(), have been saved as tweets_ai.
+The rtweet and data.table libraries and the dataset tweets_ai have been pre-loaded.
+
+
+
+```{r}
+# Create a data frame of tweet text and retweet count
+rtwt <- tweets_ai[,c("text", "retweet_count")]
+head(rtwt) %>% kable()
+
+# Sort data frame based on descending order of retweet counts
+rtwt_sort <- arrange(rtwt, desc(retweet_count))
+
+# Exclude rows with duplicate text from sorted data frame
+rtwt_unique <- unique(rtwt_sort, by = "text")
+
+# Print top 6 unique posts retweeted most number of times
+rownames(rtwt_unique) <- NULL
+head(rtwt_unique) %>% kable()
+
+
+```
+
+
+
+## Filtering for original tweets
+An original tweet is an original posting by a twitter user and is not a retweet, quote, or reply.
+The "-filter" can be combined with a search query to exclude retweets, quotes, and replies during tweet extraction.
+In this exercise, you will extract tweets on "Superbowl" that are original posts and not retweets, quotes, or replies.
+The libraries rtweet and plyr have been pre-loaded for this exercise.
+
+
+
+```{r}
+# Extract 100 original tweets on "Superbowl"
+tweets_org <- search_tweets("Superbowl -filter:retweets -filter:quote -filter:replies", n = 100, token = token)
+
+# Check for presence of replies
+sum(!is.na(tweets_org$reply_to_screen_name))
+
+# Check for presence of quotes
+sum(tweets_org$is_quote == TRUE)
+
+# Check for presence of retweets
+sum(tweets_org$is_retweet == TRUE)
+
+```
+
+
+## Filtering on tweet language
+You can use the language filter with a search query to filter tweets based on the language of the tweet.
+
+The filter extracts tweets that have been classified by Twitter as being of a particular language.
+
+Can you extract tweets posted in French on the topic "Apple iphone"?
+
+The library rtweet has been pre-loaded for this exercise.
+
+
+
+```{r}
+
+# Extract tweets on "Apple iphone" in French
+tweets_french <- search_tweets("Apple iphone", lang = "fr")
+
+# View the tweets
+head(tweets_french$text)
+
+# View the tweet metadata showing the language
+head(tweets_french$lang)
+```
+
+
+## Filter based on tweet popularity
+Popular tweets are tweets that are retweeted and favorited several times.
+
+They are useful in identifying current trends.
+A brand can promote its merchandise and build brand loyalty by identifying popular tweets and retweeting them.
+In this exercise, you will extract tweets on "Chelsea" that have been retweeted 
+a minimum of 100 times and also favorited at least by 100 users.
+
+The library rtweet has been pre-loaded for this exercise.
+
+
+
+
+```{r}
+# Extract tweets with a minimum of 100 retweets and 100 favorites
+tweets_pop <- search_tweets("Chelsea min_faves:20 AND min_retweets:20", n= 200)
+
+# Create a data frame to check retweet and favorite counts
+counts <- tweets_pop[, c("retweet_count", "favorite_count")]
+head(counts)
+
+# View the tweets
+head(tweets_pop$text)
+```
+
+
+## Extract user information
+Analyzing twitter user data provides vital information which can 
+be used to plan relevant promotional strategies.
+
+User information contains data on the number of followers 
+and friends of the twitter user.
+
+The user information may have multiple instances of the same 
+user as the user might have tweeted multiple times on a given subject. 
+You need to take the mean values of the follower and friend counts in order to consider only one instance.
+In this exercise, you will extract the number of friends and followers of users who tweet on #skincare or #cosmetics.
+Tweets on #skincare or #cosmetics, extracted using search_tweets(), have been pre-loaded as tweet_cos.
+The libraries rtweet and dplyr have also been pre-loaded.
+
+
+```{r}
+
+tweet_cos <- search_tweets("#cosmetics OR #skincare")
+
+# Extract user information of people who have tweeted on the topic
+user_cos <- users_data(tweet_cos)
+
+# View few rows of user data
+head(user_cos) %>% kable()
+
+# Aggregate screen name, follower and friend counts
+counts_df <- user_cos %>%
+    group_by(screen_name) %>%
+    summarise(follower = mean(followers_count),
+              friend = mean(friends_count))
+
+# View the output
+head(counts_df) %>% kable()
+
+```
+
+'Explore users based on the golden ratio
+The ratio of the number of followers to the number of 
+friends a user has is called the golden ratio.
+This ratio is a useful metric for marketers to strategize promotions.
+In this exercise, you will calculate the golden ratio for the aggregated 
+data frame counts_df that was created in the last step of the previous exercise.
+The data frame counts_df and library dplyr have been pre-loaded for this exercise'
+
+
+
+```{r}
+# Calculate and store the golden ratio
+counts_df$ratio <- counts_df$follower/counts_df$friend
+
+# Sort the data frame in decreasing order of follower count
+counts_sort <- arrange(counts_df, desc(follower))
+
+# View the first few rows
+head(counts_sort) %>% kable()
+
+# Select rows where the follower count is greater than 50000
+counts_sort[counts_sort$follower >50000,] %>% kable()
+
+# Select rows where the follower count is less than 1000
+counts_sort[counts_sort$follower <1000,] %>% kable()
+
+```
+
+## Subscribers to twitter lists
+A twitter list is a curated group of twitter accounts.
+
+Twitter users subscribe to lists that interest them.
+Collecting user information from twitter lists could help brands
+promote products to interested customers.
+In this exercise, you will extract lists of the twitter account of "NBA",
+the popular basketball league National Basketball Association.
+For one of the lists, you will extract the subscribed users and the user information for some of these users.
+The rtweet library has been pre-loaded for this exercise.'
+
+```{r}
+# Extract all the lists "NBA" subscribes to and view the first 4 columns
+lst_NBA <- lists_users("NBA")
+lst_NBA[,1:4] %>% kable()
+```
+
+
+
+
+## Trends by country name
+Location-specific trends identify popular topics trending in a
+specific location. You can extract trends at the country level or city level.
+It is more meaningful to extract trends around a specific region,
+in order to focus on twitter audience in that region for targeted marketing of a brand.
+Can you extract topics trending in Canada and view the trends?
+The library rtweet has been pre-loaded for this exercise.
+
+
+```{r}
+# Get topics trending in Canada
+gt_country <- get_trends("Canada")
+
+
+# View the first 6 columns
+head(gt_country[,1:6]) %>% kable()
+
+```
+
+## Trends by city and most tweeted trends
+
+It is meaningful to extract trends around a specific region to focus on twitter audience in that region.
+Trending topics in a city provide a chance to promote region-specific events or products.
+In this exercise, you will extract topics that are trending in London and also look at the most tweeted trends.
+The libraries rtweet and dplyr have been pre-loaded for this exercise.'
+
+
+
+```{r}
+# Get topics trending in London
+gt_city <- get_trends("London")
+
+# View the first 6 columns
+head(gt_city[,1:6]) %>% kable()
+
+# Aggregate the trends and tweet volumes
+trend_df <- gt_city %>%
+    group_by(trend) %>%
+    summarise(tweet_vol = mean(tweet_volume))
+
+# Sort data frame on descending order of tweet volumes and print header
+trend_df_sort <- arrange(trend_df, desc(tweet_vol))
+head(trend_df_sort,10) %>% kable()
+
+```
+
+
+## Create time series objects
+A time series object contains the aggregated frequency of tweets over a specified time interval.
+Creating time series objects is the first step before visualizing tweet frequencies for comparison.
+In this exercise, you will be creating time series objects for the competing sportswear brands Puma and Nike.
+Tweets extracted using search_tweets() for "#puma" and "#nike" have been pre-loaded for you as puma_st and nike_st.
+
+
+
+
+
+
+```{r}
+# Create a time series object for Puma at hourly intervals
+
+puma_st <- search_tweets("#puma", n = 1000)
+puma_ts <- ts_data(puma_st, by ='hours')
+
+# Rename the two columns in the time series object
+names(puma_ts) <- c("time", "puma_n")
+
+# View the output
+head(puma_ts) %>% kable()
+
+# Create a time series object for Nike at hourly intervals
+nike_st <- search_tweets("#nike",  n = 1000)
+nike_ts <- ts_data(nike_st, by ='hours')
+
+# Rename the two columns in the time series object
+names(nike_ts) <- c("time", "nike_n")
+
+# View the output
+head(nike_ts) %>% kable()
+```
+
+
+## Compare tweet frequencies for two brands
+
+The volume of tweets posted for a product is a strong indicator of its brand salience.
+Let's compare brand salience for two competing brands, Puma and Nike.
+In the previous exercise, you had created time series objects for tweets on Puma and Nike.
+You will merge the time series objects and create time series plots to compare the frequency of tweets.
+The time series objects for Puma and Nike have been pre-loaded as puma_ts and nike_ts respectively.
+The libraries rtweet, reshape, and ggplot2 have also been pre-
+
+
+
+
+```{r}
+# Merge the two time series objects and retain "time" column
+merged_df <- merge(puma_ts, nike_ts, by = "time", all = TRUE)
+
+head(merged_df) %>% head()
+
+# Stack the tweet frequency columns
+melt_df <- melt(merged_df, na.rm = TRUE, id.vars = "time")
+
+# View the output
+head(melt_df) %>% head()
+
+# Plot frequency of tweets on Puma and Nike
+ggplot(data = melt_df, aes(x = time, y = value, col = variable))+
+    geom_line(lwd = 0.8)
+
+
+
+```
+
+
+
+## Remove URLs and characters other than letters
+Tweet text posted by twitter users is unstructured, noisy, and raw.
+It contains emoticons, URLs, and numbers. This redundant information 
+has to be cleaned before analysis in order to yield reliable results.
+In this exercise, you will remove URLs and replace characters other than letters with spaces.
+The tweet data frame twt_telmed, with 1000 extracted tweets on "telemedicine", has been pre-loaded for this exercise.
+The library qdapRegex has been pre-loaded for this exercise.'
+
+```{r}
+
+library(qdapRegex)
+twt_telmed <- search_tweets("telemedicine",  n = 1000)
+
+twt_txt <- twt_telmed$text
+head(twt_txt)
+
+# Remove URLs from the tweet text and view the output
+twt_txt_url <- rm_twitter_url(twt_txt)
+head(twt_txt_url)
+
+# Replace special characters, punctuation, & numbers with spaces
+twt_txt_chrs  <- gsub("[^A-Za-z]"," " ,twt_txt_url)
+
+# View text after replacing special characters, punctuation, & numbers
+head(twt_txt_chrs)
+
+```
+
+
+
+
+
+## Build a corpus and convert to lowercase
+A corpus is a list of text documents. You have to convert the tweet
+text into a corpus to facilitate subsequent steps in text processing.
+When analyzing text, you want to ensure that a word is not counted as two 
+different words because the case is different in the two instances. Hence, 
+you need to convert text to lowercase.
+In this exercise, you will create a text corpus and convert all characters to lower case.
+The cleaned text output from the previous exercise has been pre-loaded as twts_gsub.
+The library tm has been pre-loaded for this exercise.
+
+
+```{r}
+twt_gsub <- twt_txt_chrs
+library(tm)
+
+# Convert text in "twt_gsub" dataset to a text corpus and view output
+twt_corpus <- twt_gsub %>% 
+    VectorSource() %>% 
+    Corpus() 
+head(twt_corpus$content)
+
+# Convert the corpus to lowercase
+twt_corpus_lwr <- tm_map(twt_corpus, tolower) 
+
+# View the corpus after converting to lowercase
+head(twt_corpus_lwr$content)
+
+```
+
+
+
+
+## Remove stop words and additional spaces
+The text corpus usually has many common words like a, an, the, of,
+and but. These are called stop words.
+Stop words are usually removed during text processing so one can
+focus on the important words in the corpus to derive insights.
+Also, the additional spaces created during the removal of special characters, 
+punctuation, numbers, and stop words need to be removed from the corpus.
+The corpus that you created in the last exercise has been pre-loaded as twt_corpus_lwr.
+The library tm has been pre-loaded for this exercise.
+
+
+
+```{r}
+# Remove English stop words from the corpus and view the corpus
+twt_corpus_stpwd <- tm_map(twt_corpus_lwr, removeWords, stopwords("english"))
+head(twt_corpus_stpwd$content)
+
+# Remove additional spaces from the corpus
+twt_corpus_final <- tm_map(twt_corpus_stpwd, stripWhitespace)
+
+# View the text corpus after removing spaces
+head(twt_corpus_final$content)
+
+```
+
+
+## Removing custom stop words
+Popular terms in a text corpus can be visualized 
+using bar plots or word clouds.
+However, it is important to remove custom stop words present in the corpus 
+first before using the visualization tools.
+In this exercise, you will check the term frequencies and 
+remove custom stop words from the text corpus that you had created for "telemedicine".
+The text corpus has been pre-loaded as twt_corpus.
+The libraries qdap and tm have been pre-loaded for this exercise.
+
+
+
+
+```{r}
+
+library(qdap)
+
+termfreq  <-  freq_terms(twt_corpus, 60)
+termfreq
+
+# Create a vector of custom stop words
+custom_stopwds <- c("telemedicine", " s", "amp", "can", "new", "medical", 
+                    "will", "via", "way",  "today", "come", "t", "ways", 
+                    "say", "ai", "get", "now")
+
+# Remove custom stop words and create a refined corpus
+corp_refined <- tm_map(twt_corpus,removeWords, custom_stopwds) 
+
+# Extract term frequencies for the top 20 words
+termfreq_clean <- freq_terms(corp_refined, 20)
+termfreq_clean
+
+```
+
+
+
+## Visualize popular terms with bar plots
+Bar plot is a simple yet popular tool used in data visualization.
+It quickly helps summarize categories and their values in a visual form.
+In this exercise, you will create bar plots for the popular terms appearing in a text corpus.
+The refined text corpus that you created for "telemedicine" has been pre-loaded as corp_refined.
+The libraries qdap and ggplot2 have been pre-loaded for this exercise.'
+
+```{r}
+
+# Extract term frequencies for the top 10 words
+termfreq_10w <- freq_terms(corp_refined, 10)
+termfreq_10w
+
+# Identify terms with more than 60 counts from the top 10 list
+term60 <- subset(termfreq_10w, FREQ > 60)
+
+# Create a bar plot using terms with more than 60 counts
+ggplot(term60, aes(x = reorder(WORD, -FREQ), y = FREQ)) + 
+    geom_bar(stat = "identity", fill = "red") + 
+    theme(axis.text.x = element_text(angle = 15, hjust = 1))
+
+
+# Extract term frequencies for the top 25 words
+termfreq_25w <- freq_terms(corp_refined, 25)
+termfreq_25w
+
+# Identify terms with more than 50 counts from the top 25 list
+term50 <- subset(termfreq_25w, FREQ > 50)
+term50
+
+# Create a bar plot using terms with more than 50 counts
+ggplot(term50, aes(x = reorder(WORD, -FREQ), y = FREQ)) +
+    geom_bar(stat = "identity", fill = "blue") + 
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+
+
+## Word clouds for visualization
+A word cloud is an image made up of words in which the size of 
+each word indicates its frequency.
+It is an effective promotional image for marketing campaigns.
+In this exercise, you will create word clouds using the words in a text corpus.
+The refined text corpus that you created for "telemedicine" has been pre-loaded as corp_refined.
+The libraries wordcloud and RColorBrewer have been pre-loaded for this exercise.
+
+
+
+```{r}
+library(wordcloud)
+# Create a word cloud in red with min frequency of 20
+wordcloud(corp_refined, min.freq = 20, colors = "red", 
+          scale = c(3,0.5),random.order = FALSE)
+
+
+# Create word cloud with 6 colors and max 50 words
+wordcloud(corp_refined, max.words = 50, 
+          colors = brewer.pal(6, "Dark2"), 
+          scale=c(4,1), random.order = FALSE)
+
+```
+
+
+
+## Create a document term matrix
+The document term matrix or DTM is a matrix representation of a corpus.
+Creating the DTM from the text corpus is the first step towards building a topic model.
+Can you create a DTM from the pre-loaded corpus on "Climate change" called corpus_climate?
+The library tm has been pre-loaded for this exercise.'
+
+
+
+```{r}
+# Create a document term matrix (DTM) from the pre-loaded corpus
+climate_change_twts  <- search_tweets("Climate change", n = 2000)
+# Remove URLs from the tweet text and view the output
+twt_txt_clim <- rm_twitter_url(climate_change_twts$text)
+head(twt_txt_clim )
+
+# Replace special characters, punctuation, & numbers with spaces
+twt_txt_clim  <- gsub("[^A-Za-z]"," " ,twt_txt_clim)
+
+# View text after replacing special characters, punctuation, & numbers
+head(twt_txt_clim)
+
+corpus_climate <-twt_txt_clim %>% 
+    VectorSource() %>% 
+    Corpus() 
+
+# Convert the corpus to lowercase
+corpus_climate <- tm_map(corpus_climate, tolower) 
+corpus_climate<- tm_map(corpus_climate, removeWords, stopwords("english"))
+dtm_climate <- DocumentTermMatrix(corpus_climate)
+dtm_climate
+
+# Find the sum of word counts in each document
+rowTotals <- apply(dtm_climate, 1, sum)
+head(rowTotals)
+
+# Select rows with a row total greater than zero
+dtm_climate_new <- dtm_climate[rowTotals > 0, ]
+dtm_climate_new
+
+```
+
+
+## Create a topic model
+Topic modeling is the task of automatically discovering topics from a vast amount of text.
+You can create topic models from the tweet text to quickly summarize the vast information
+available into distinct topics and gain insights.
+In this exercise, you will extract distinct topics from tweets on "Climate change".
+The DTM of tweets on "Climate change" has been pre-loaded as dtm_climate_new.
+The library topicmodels has been pre-loaded for this exercise. 
+
+
+
+```{r}
+library(topicmodels)
+# Create a topic model with 5 topics
+topicmodl_5 <- LDA(dtm_climate_new, k = 5)
+
+# Select and view the top 10 terms in the topic model
+top_10terms <- terms(topicmodl_5,10)
+top_10terms 
+# Create a topic model with 4 topics
+topicmodl_4 <- LDA(dtm_climate_new, k = 4)
+
+# Select and view the top 6 terms in the topic model
+top_6terms <- terms(topicmodl_4, 6)
+top_6terms 
+```
+
+
+## Extract sentiment scores
+Sentiment analysis is useful in social media monitoring since it gives an overview of people's sentiments.
+Climate change is a widely discussed topic for which the perceptions range from being a severe threat to nothing but a hoax.
+In this exercise, you will perform sentiment analysis and extract the sentiment scores for tweets on Climate change.
+You will use those sentiment scores in the next exercise to plot and analyze how the collective sentiment varies among people.
+Tweets on Climate change, extracted using search_tweets(), have been pre-loaded as tweets_cc.
+The library syuzhet has been pre-loaded for this exercise.
+
+
+
+
+```{r}
+library(syuzhet)
+tweets_cc <- climate_change_twts
+# Perform sentiment analysis for tweets on `Climate change` 
+sa.value <- get_nrc_sentiment(tweets_cc$text)
+
+# View the sentiment scores
+head(sa.value, 10)
+```
+
+
+## Perform sentiment analysis
+You have extracted the sentiment scores for tweets on "Climate change" in the previous exercise.
+Can you plot and analyze the most prevalent sentiments among people and see how the collective sentiment varies?
+The data frame with the extracted sentiment scores has been pre-loaded as sa.value.
+The library ggplot2 has been pre-loaded for this exercise.
+
+
+```{r}
+
+# Calculate sum of sentiment scores
+score <- colSums(sa.value[,])
+
+# Convert the sum of scores to a data frame
+score_df <- data.frame(score)
+
+# Convert row names into 'sentiment' column and combine with sentiment scores
+score_df2 <- cbind(sentiment = row.names(score_df),  
+                   score_df, row.names = NULL)
+print(score_df2)
+
+# Plot the sentiment scores
+ggplot(data = score_df2, aes(x = sentiment, y = score, fill = sentiment)) +
+    geom_bar(stat = "identity") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+
+
+
+
+## Preparing data for a retweet network
+A retweet network is a network of twitter users who retweet tweets posted by other users.
+People who retweet on travel can be potential players for broadcasting messages of a travel portal.
+In this exercise, you will prepare the tweet data on #travel for creating a retweet network.
+The tweet data frame has been pre-loaded as twts_travel.'
+
+
+```{r}
+# Extract source vertex and target vertex from the tweet data frame
+twts_trvl <- search_tweets("travel", n = 500)
+rtwt_df <- twts_trvl[, c("screen_name" , "retweet_screen_name" )]
+
+# View the data frame
+head(rtwt_df)
+
+# Remove rows with missing values
+rtwt_df_new <- rtwt_df[complete.cases(rtwt_df), ]
+
+# Create a matrix
+rtwt_matrx <- as.matrix(rtwt_df_new)
+head(rtwt_matrx)
+
+```
+
+## Create a retweet network
+The core step in network analysis is to create a network object like a 
+retweet network as it helps analyze the inter-relationships between the nodes.
+Understanding the position of potential customers on a retweet network
+allows a brand to identify key players who are likely to retweet posts to spread brand messaging.
+Can you create a retweet network on #travel using the matrix saved in the previous exercise?
+The matrix rtwt_matrx and the library igraph have been pre-loaded for this exercise
+
+
+
+```{r}
+library(igraph)
+# Convert the matrix to a retweet network
+nw_rtweet <- graph_from_edgelist(el = rtwt_matrx, directed = TRUE)
+
+# View the retweet network
+print.igraph(nw_rtweet)
+```
+
+
+
+
+
+
+## Calculate out-degree scores
+In a retweet network, the out-degree of a user indicates the number of times the user retweets posts.
+Users with high out-degree scores are key players who can be used as a medium to retweet promotional posts.
+Can you identify users who can be used as a medium to retweet promotional posts for a travel portal?
+The retweet network on #travel has been pre-loaded as nw_rtweet.
+The library igraph has been pre-loaded for this exercise.
+
+
+```{r}
+#out degree users who retweeted most
+# Calculate out-degree scores from the retweet network
+out_degree <- degree(nw_rtweet, mode = c("out"))
+
+# Sort the out-degree scores in decreasing order
+out_degree_sort <- sort(out_degree, decreasing = T)
+
+# View users with the top 10 out-degree scores
+out_degree_sort[1:10]
+
+#
+```
+
+
+
+## Compute the in-degree scores
+In a retweet network, the in-degree of a user indicates the number of times the user's posts are retweeted.
+Users with high in-degrees are influential as their tweets are retweeted many times.
+In this exercise, you will identify users who can be used to initiate branding messages of a travel portal.
+The retweet network on #travel has been pre-loaded as nw_rtweet.
+The library igraph has been pre-loaded for this exercise.
+
+
+
+
+```{r}
+# Compute the in-degree scores from the retweet network
+in_degree <- degree(nw_rtweet, mode = c("in"))
+
+# Sort the in-degree scores in decreasing order
+in_degree_sort <- sort(in_degree, decreasing = T)
+
+# View users with the top 10 in-degree scores
+in_degree_sort[1:10]
+```
+
+## Calculate the betweenness scores
+Betweenness centrality represents the degree to which nodes stand between each other.
+In a retweet network, a user with a high betweenness centrality score would have more 
+control over the network because more information will pass through the user.
+Can you identify users who are central to people who retweet the most and those
+whose tweets are retweeted frequently?
+The retweet network on #travel has been pre-loaded as nw_rtweet.
+The library igraph has been pre-loaded for this exercise.
+
+
+
+```{r}
+# Calculate the betweenness scores from the retweet network
+betwn_nw <- betweenness(nw_rtweet, directed = T)
+
+# Sort betweenness scores in decreasing order and round the values
+betwn_nw_sort <- betwn_nw %>%
+    sort(decreasing = T) %>%
+    round()
+
+# View users with the top 10 betweenness scores 
+betwn_nw_sort[1:10]
+```
+
+
+## Create a network plot with attributes
+Visualization of twitter networks helps understand complex networks in an easier and appealing way.
+You can format a plot to enhance the readability and improve its visual appeal.
+In this exercise, you will visualize a retweet network on #travel.
+The retweet network has been pre-loaded as nw_rtweet.
+The library igraph has been pre-loaded for this exercise.
+
+```{r}
+# Create a basic network plot
+plot.igraph(nw_rtweet)
+deg_out <- degree(nw_rtweet, mode = c("out"))
+# Create a network plot with formatting attributes
+set.seed(1234)
+plot(nw_rtweet, asp = 9/12, 
+     vertex.size = 10,
+     vertex.color = "green", 
+     edge.arrow.size = 0.5,
+     edge.color = "black",
+     vertex.label.cex = 0.9,
+     vertex.label.color = "black")
+
+
+```
+
+
+
+
+## Network plot based on centrality measure
+It will be more meaningful if the vertex size in the plot is
+proportional to the number of times the user retweets.
+In this exercise, you will add attributes such that the 
+vertex size is indicative of the number of times the user retweets.
+The retweet network has been pre-loaded as nw_rtweet.
+The library igraph has been pre-loaded for this exercise.
+
+
+
+
+
+```{r}
+
+# Create a variable for out-degree
+deg_out <- degree(nw_rtweet, mode = c("out"))
+deg_out
+# Amplify the out-degree values
+vert_size <- (deg_out * 3) + 5
+
+# Set vertex size to amplified out-degree values
+set.seed(1234)
+plot(nw_rtweet, asp = 10/11, 
+     vertex.size  = vert_size, vertex.color = "lightblue",
+     edge.arrow.size = 0.5,
+     edge.color = "grey",
+     vertex.label.cex = 0.8,
+     vertex.label.color = "black")
+
+
+```
+
+
+## Follower count to enhance the network plot
+The users who retweet most will add more value if they have a high follower
+count as their retweets will reach a wider audience.
+In a network plot, the combination of vertex size indicating the number of 
+retweets by a user and vertex color indicating a high follower count provides
+clear insights on the most influential users who can promote a brand.
+In this exercise, you will create a plot showing the most influential users.
+The retweet network nw_rtweet, the dataset followers with the follower count, 
+and vert_size created in the last exercise have all been pre-loaded.
+The library igraph has been pre-loaded for this exercise.
+
+
+```{r}
+followers <- twts_trvl %>% group_by(screen_name) %>%
+    summarise(followers_count= mean(followers_count))
+
+data.table::setnames(followers, "screen_name", "vert_names")
+
+# Create a column and categorize follower counts above and below 500
+followers$follow <- ifelse(followers$followers_count > 500, "1", "0")
+head(followers)
+
+# Assign the new column as vertex attribute to the retweet network
+V(nw_rtweet)$followers <- followers$follow
+vertex_attr(nw_rtweet)
+
+# Set the vertex colors based on follower count and create a plot
+sub_color <- c("lightgreen", "tomato")
+plot(nw_rtweet, asp = 9/12,
+     vertex.size = vert_size, edge.arrow.size = 0.5,
+     vertex.label.cex = 0.8,
+     vertex.color = sub_color[as.factor(vertex_attr(nw_rtweet, "followers"))],
+     vertex.label.color = "black", vertex.frame.color = "grey")
+
+```
+
+
+
+## Extract geolocation coordinates
+Analyzing the geolocation of tweets helps influence customers with targeted marketing.
+The first step in analyzing geolocation data using maps is to extract the available geolocation coordinates.
+Veganism is a widely promoted topic. It is the practice of abstaining from the use of animal
+products and its followers are known as "vegans".
+In this exercise, you will extract the geolocation coordinates from tweets on "#vegan".
+The library rtweet has been pre-loaded for this exercise.'
+
+
+```{r}
+# Extract 18000 tweets on #vegan
+vegan <- search_tweets("#vegan", n = 500)
+
+# Extract geo-coordinates data to append as new columns
+vegan_coord <- lat_lng(vegan)
+
+# View the columns with geo-coordinates for first 20 tweets
+head(vegan_coord[c("lat","lng")], 20)
+
+```
+
+
+
+
+## Twitter data on the map
+It will be interesting to visualize tweets on "#vegan" on the map to 
+see regions from where they are tweeted the most. A brand promoting vegan 
+products can target people in these regions for their marketing.
+Remember not all tweets will have the geolocation data as this is an optional input for the users.
+The geolocation coordinates that you had extracted in the last exercise has been pre-loaded as vegan_coord.
+
+The library maps has also been pre-loaded for this exercise.
+
+```{r}
+# Omit rows with missing geo-coordinates in the data frame
+# 
+# library(maps)
+# vegan_geo <- na.omit(vegan_coord[,c("lat", "lng")])
+# 
+# # View the output
+# head(vegan_geo)
+# 
+# # Plot longitude and latitude values of tweets on the US state map
+# map(database = "state", fill = TRUE, col = "light yellow")
+# with(vegan_geo, points(lng, lat, pch = 20, cex = 1, col = 'blue'))
+# 
+# # Plot longitude and latitude values of tweets on the world map
+# map(database = "world", fill = TRUE, col = "light yellow")
+# with(vegan_geo, points(lng, lat, pch = 20, cex = 1, col = 'blue')) 
+
+```
+
+
+
+
+
+
+

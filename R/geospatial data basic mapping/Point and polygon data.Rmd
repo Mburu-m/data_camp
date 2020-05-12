@@ -1,0 +1,199 @@
+---
+title: "Point and polygon data"
+author: "Mburu"
+date: "2/18/2020"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE , message = FALSE, warning = FALSE)
+```
+
+## 
+
+```{r cars}
+library(tidyverse)
+library(sp)
+library(sf)
+2+2 +2
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+
+countries_spdf <- readRDS("02_countries_spdf.rds")
+summary(countries_spdf)
+```
+
+
+```{r}
+# Call str() with max.level = 2 on countries_spdf
+str(countries_spdf, max.level = 2)
+```
+
+
+```{r}
+# Plot countries_spdf
+plot(countries_spdf)
+```
+
+
+
+```{r}
+one <- countries_spdf@polygons[[169]]
+
+```
+
+
+```{r}
+# str() with max.level = 2, on the Polygons slot of one
+str(one@Polygons, max.level = 2)
+
+```
+
+
+```{r}
+str(one@Polygons[[6]], max.level = 2)
+# Call plot on the coords slot of 6th element of one@Polygons
+
+```
+
+
+```{r}
+# Call plot on the coords slot of 6th element of one@Polygons
+
+plot(one@Polygons[[6]]@coords)
+
+```
+
+
+```{r}
+one <- countries_spdf@polygons[[169]]
+
+# str() with max.level = 2, on the Polygons slot of one
+str(one@Polygons, max.level = 2)
+
+```
+
+
+```{r}
+# str() with max.level = 2, on the 6th element of the one@Polygons
+
+str(one@Polygons[[6]], max.level = 2)
+# Call plot on the coords slot of 6th element of one@Polygons
+
+```
+
+
+```{r}
+
+plot(one@Polygons[[6]]@coords)
+
+```
+
+
+
+```{r}
+# Subset the 169th object of countries_spdf: usa
+usa <- countries_spdf[169,]
+
+# Look at summary() of usa
+
+summary(usa)
+```
+
+
+
+```{r}
+# Look at str() of usa
+
+str(usa)
+
+
+```
+
+
+```{r}
+# Call plot() on usa
+plot(usa)
+```
+
+
+```{r}
+# Call head() and str() on the data slot of countries_spdf
+
+head(countries_spdf@data)
+
+# Pull out the name column using $
+```
+
+
+
+```{r}
+str(countries_spdf@data)
+```
+
+
+```{r}
+countries_spdf$name
+```
+
+
+```{r}
+# Pull out the subregion column using [[
+countries_spdf[['subregion']]
+
+
+```
+
+
+```{r}
+# Create logical vector: is_nz
+
+is_nz <- countries_spdf$name == "New Zealand"
+# Subset countries_spdf using is_nz: nz
+nz <- countries_spdf[is_nz, ]
+
+# Plot nz
+plot(nz)
+
+```
+
+
+```{r}
+library(tmap)
+
+# Use qtm() to create a choropleth map of gdp
+
+qtm(shp = countries_spdf, fill = "gdp")
+
+
+```
+
+
+
+```{r}
+# Add style argument to the tm_fill() call
+# Add a tm_borders() layer 
+tm_shape(countries_spdf) +
+  tm_fill(col = "population") +
+  tm_borders(col = "burlywood4")
+
+```
+
+
+```{r}
+# New plot, with tm_bubbles() instead of tm_fill()
+
+tm_shape(countries_spdf) +
+  tm_bubbles(size = "population") +
+  tm_borders(col = "burlywood4")
+
+
+```
+

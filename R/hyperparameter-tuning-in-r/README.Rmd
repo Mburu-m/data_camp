@@ -1,0 +1,747 @@
+---
+title: "Hyperparameter Tuning in R"
+author: "Mburu"
+date: "3/23/2020"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+##  Datacamp Courses README will be on the latest course done
+
+```{r}
+library(tidyverse)
+library(data.table)
+library(tictoc)
+library(caret)
+library(knitr)
+```
+
+
+## Model parameters vs. hyperparameters
+In order to perform hyperparameter tuning,
+it is important to really understand what hyperparameters 
+are (and what they are not). So let's look at model parameters versus hyperparameters in detail.
+Note: The Breast Cancer Wisconsin (Diagnostic) Data Set has been loaded as breast_cancer_data for you.
+
+```{r}
+breast_cancer_data <- fread("breast_cancer_data.csv")
+
+# Fit a linear model on the breast_cancer_data.
+linear_model <- lm(concavity_mean ~ symmetry_mean,data = breast_cancer_data)
+
+# Look at the summary of the linear_model.
+summary(linear_model)
+```
+
+
+```{r}
+# Extract the coefficients.
+coef(linear_model)
+
+```
+
+
+## What are the coefficients?
+To get a good feel for the difference between
+fitted model parameters and hyperparameters, we are 
+going to take a closer look at those fitted parameters:
+in our simple linear model, the coefficients. The dataset
+breast_cancer_data has already been loaded for you and the
+linear model call was run as in the previous lesson, 
+so you can directly access the object linear_model.
+In our linear model, we can extract the coefficients
+in the following way: linear_model$coefficients. And we can visualize the relationship we modeled with a plot.
+Remember, that a linear model has the basic formula: y = x * slope + intercept
+
+```{r}
+
+# Plot linear relationship.
+ggplot(data = breast_cancer_data, 
+       aes(x = symmetry_mean, y = concavity_mean)) +
+    geom_point(color = "grey") +
+    geom_abline(slope = linear_model$coefficients[2], 
+                intercept = linear_model$coefficients[1])
+
+
+
+```
+
+
+## Machine learning with caret
+Before we can train machine learning models and tune hyperparameters,
+we need to prepare the data. The data has again been loaded into your 
+workspace as breast_cancer_data. The library caret has already been loaded
+
+```{r}
+# Create partition index
+index <- createDataPartition(breast_cancer_data$diagnosis, p = 0.7, list = FALSE)
+
+# Subset `breast_cancer_data` with index
+bc_train_data <- breast_cancer_data[index, ]
+bc_test_data  <- breast_cancer_data[-index, ]
+
+# Define 3x5 folds repeated cross-validation
+fitControl <- trainControl(method = "repeatedcv", number = 5, repeats = 3)
+
+# Run the train() function
+gbm_model <- train(diagnosis ~ ., 
+                   data = bc_train_data, 
+                   method = "gbm", 
+                   trControl = fitControl,
+                   verbose = FALSE)
+
+# Look at the model
+gbm_model
+```
+
+
+## Changing the number of hyperparameters to tune
+When we examine the model object closely, 
+we can see that caret already did some automatic
+hyperparameter tuning for us: train automatically creates 
+a grid of tuning parameters. By default, if p is the number 
+of tuning parameters, the grid size is 3^p. But we can also 
+specify the number of different values to try for each hyperparameter.
+The data has again been preloaded as bc_train_data. 
+The libraries caret and tictoc have also been preloaded.
+
+```{r}
+set.seed(42)
+# Start timer.
+tic()
+# Train model.
+gbm_model <- train(diagnosis ~ ., 
+                   data = bc_train_data, 
+                   method = "gbm", 
+                   trControl = trainControl(method = "repeatedcv", 
+                                            number = 5, repeats = 3),
+                   verbose = FALSE,
+                   tuneLength = 4)
+# Stop timer.
+toc()
+
+gbm_model
+```
+
+
+## Cartesian grid search in caret
+In chapter 1, you learned how to use the expand.grid() 
+function to manually define hyperparameters. The same function
+can also be used to define a grid of hyperparameters.
+The voters_train_data dataset has already been preprocessed 
+to make it a bit smaller so training will run faster; it has 
+now 80 observations and balanced classes and has been loaded for you. 
+The caret and tictoc packages have also been loaded and the trainControl 
+object has been defined with repeated cross-validation:
+
+                           
+                           
+```{r}
+fitControl <- trainControl(method = "repeatedcv",
+                           number = 3,
+                           repeats = 5)
+
+
+
+voters_data <- fread("voters_data.csv")
+
+
+index <- createDataPartition(voters_data$turnout16_2016, p = 0.7, list = FALSE)
+
+# Subset `breast_cancer_data` with index
+voters_train_data <-voters_data[index, ]
+voters_test_data  <- voters_data[-index, ]
+
+# Define Cartesian grid
+man_grid <- expand.grid(degree = c(1, 2, 3), 
+                        scale = c(0.1, 0.01, 0.001), 
+                        C = 0.5)
+
+# Start timer, set seed & train model
+tic()
+set.seed(42)
+svm_model_voters_grid <- train(turnout16_2016 ~ ., 
+                               data = voters_train_data, 
+                               method = "svmPoly", 
+                               trControl = fitControl,
+                               verbose= FALSE,
+                               tuneGrid = man_grid)
+toc()
+```
+
+```{r}
+svm_model_voters_grid
+# Plot default
+plot(svm_model_voters_grid)
+
+```
+
+```{r}
+
+# Plot Kappa level-plot
+plot(svm_model_voters_grid, metric = "Kappa", plottype = "level")
+
+```
+
+
+## Tune hyperparameters manually
+If you already know which hyperparameter
+values you want to set, you can also manually define
+hyperparameters as a grid. Go to modelLookup('gbm')
+or search for gbm in the list of available models in caret and check under Tuning Parameters.
+
+Note: Just as before,bc_train_data and the libraries caret and tictoc have been preloaded.
+
+```{r}
+# Define hyperparameter grid.
+hyperparams <- expand.grid(n.trees = 200, 
+                           interaction.depth = 1, 
+                           shrinkage = 0.1, 
+                           n.minobsinnode = 10)
+
+# Apply hyperparameter grid to train().
+set.seed(42)
+gbm_model <- train(diagnosis ~ ., 
+                   data = bc_train_data, 
+                   method = "gbm", 
+                   trControl = trainControl(method = "repeatedcv", 
+                                            number = 5,repeats = 3),
+                   verbose = FALSE,
+                   tuneGrid = hyperparams)
+
+gbm_model
+```
+
+
+
+## Grid search with range of hyperparameters
+In chapter 1, you learned how to use the expand.grid()
+function to manually define a set of hyperparameters.
+The same function can also be used to define a grid with ranges of hyperparameters.
+The voters_train_data dataset has been loaded for you, as have the caret and tictoc packages.
+
+```{r}
+# Define the grid with hyperparameter ranges
+big_grid <- expand.grid(size = seq(from = 1, to = 5, by = 1), decay = c(0, 1))
+
+# Train control with grid search
+fitControl <- trainControl(method = "repeatedcv", number = 3, repeats = 5, search = "grid")
+
+# Train neural net
+tic()
+set.seed(42)
+nn_model_voters_big_grid <- train(turnout16_2016 ~ ., 
+                                  data = voters_train_data, 
+                                  method = "nnet", 
+                                  trControl = fitControl,
+                                  verbose = FALSE)
+toc()
+
+nn_model_voters_big_grid 
+```
+
+
+
+## Random search with caret
+
+Now you are going to perform a random search instead of grid search!
+As before, the small voters_train_data dataset has been loaded for you,
+as have the caret and tictoc packages.
+
+```{r}
+# Train control with random search
+fitControl <- trainControl(method = "repeatedcv",
+                           number = 3,
+                           repeats = 5,
+                           search = "random")
+
+# Test 6 random hyperparameter combinations
+tic()
+nn_model_voters_big_grid <- train(turnout16_2016 ~ ., 
+                                  data = voters_train_data, 
+                                  method = "nnet", 
+                                  trControl = fitControl,
+                                  verbose = FALSE,
+                                  tuneLength = 6)
+toc()
+nn_model_voters_big_grid
+```
+
+
+## Adaptive Resampling with caret
+Now you are going to train a model on the voter's 
+dataset using Adaptive Resampling!
+As before, the small voters_train_data dataset
+has been loaded for you, as have the caret and tictoc packages.
+
+
+
+```{r}
+# Define trainControl function
+fitControl <- trainControl(method = "adaptive_cv",
+                           number = 3, repeats = 3,
+                           adaptive = list(min = 3, alpha = 0.05, method = "BT", complete = FALSE),
+                           search = "random")
+
+# Start timer & train model
+tic()
+svm_model_voters_ar <- train(turnout16_2016 ~ ., 
+                             data = voters_train_data, 
+                             method = "nnet", 
+                             trControl = fitControl,
+                             verbose = FALSE,
+                             tuneLength = 6 )
+toc()
+
+
+```
+
+## Modeling with mlr
+As you have seen in the video just now,
+mlr is yet another popular machine learning package in 
+R that comes with many functions to do hyperparameter tuning.
+Here, you are going to go over the basic workflow for training models with mlr.
+The knowledge_train_data dataset has already been loaded for you, 
+as have the packages mlr, tidyverse and tictoc. Remember that starting 
+to type in the console will suggest autocompleting options for functions and packages.
+
+
+```{r}
+library(mlr)
+knowledge_test_data <- read_csv("knowledge_test_data.csv")
+knowledge_train_data <- read_csv("knowledge_train_data.csv")
+# Create classification taks
+task <- makeClassifTask(data = knowledge_train_data, 
+                        target = "UNS")
+
+```
+
+
+```{r}
+# Call the list of learners
+listLearners() %>%
+    as.data.frame() %>%
+    select(class, short.name, package) %>%
+    filter(grepl("classif.", class)) %>%
+    kable
+
+```
+
+
+```{r}
+# Create learner
+lrn <- makeLearner("classif.randomForest", 
+                   fix.factors.prediction = TRUE,
+                   predict.type = "prob")
+
+```
+
+
+## Random search with mlr
+Now, you are going to perform hyperparameter tuning with random search.
+You will prepare 
+the different functions and objects you need to tune your model in the next exercise.
+The knowledge_train_data dataset has already been loaded for you,
+as have the packages mlr, tidyverse and tictoc. Remember to look 
+into the function that lists all learners if you are unsure about the name of a learner.
+
+```{r}
+getParamSet("classif.nnet")
+# Define task
+task <- makeClassifTask(data = knowledge_train_data, 
+                        target = "UNS")
+
+# Define learner
+lrn <- makeLearner("classif.nnet", predict.type = "prob", fix.factors.prediction = TRUE)
+```
+
+
+```{r}
+param_set <- makeParamSet(
+    makeDiscreteParam("size", values = c(2,3,5)),
+    makeNumericParam("decay", lower = 0.0001, upper = 0.1)
+)
+
+# Print parameter set
+print(param_set)
+
+# Define a random search tuning method.
+ctrl_random <- makeTuneControlRandom()
+
+```
+
+## Perform hyperparameter tuning with mlr
+Now, you can combine the prepared functions 
+and objects from the previous exercise to actually 
+perform hyperparameter tuning with random search.
+The knowledge_train_data dataset has already been loaded for you, 
+as have the packages mlr, tidyverse and tictoc. And the following code has also been run already
+
+```{r}
+# Define learner
+lrn <- makeLearner("classif.nnet", predict.type = "prob", fix.factors.prediction = TRUE)
+
+# Define set of parameters
+param_set <- makeParamSet(
+  makeDiscreteParam("size", values = c(2,3,5)),
+  makeNumericParam("decay", lower = 0.0001, upper = 0.1)
+)
+```
+
+
+
+```{r}
+# Define a random search tuning method.
+ctrl_random <- makeTuneControlRandom(maxit = 6)
+
+# Define a 3 x 3 repeated cross-validation scheme
+cross_val <- makeResampleDesc("RepCV", folds = 3 * 3)
+
+# Tune hyperparameters
+tic()
+lrn_tune <- tuneParams(lrn,
+                       task,
+                       resampling = cross_val,
+                       control = ctrl_random,
+                       par.set = param_set)
+toc()
+lrn_tune
+```
+
+
+## Evaluating hyperparameter tuning results
+Here, you will evaluate the results of a hyperparameter
+tuning run for a decision tree trained with the rpart package. 
+The knowledge_train_data dataset has already been loaded for you,
+as have the packages mlr and tidyverse. And the following code has also been run:
+
+```{r}
+task <- makeClassifTask(data = knowledge_train_data, 
+                        target = "UNS")
+
+lrn <- makeLearner(cl = "classif.rpart", fix.factors.prediction = TRUE)
+
+param_set <- makeParamSet(
+    makeIntegerParam("minsplit", lower = 1, upper = 30),
+    makeIntegerParam("minbucket", lower = 1, upper = 30),
+    makeIntegerParam("maxdepth", lower = 3, upper = 10)
+)
+
+ctrl_random <- makeTuneControlRandom(maxit = 10)
+
+```
+
+
+```{r}
+# Create holdout sampling
+holdout <- makeResampleDesc("Holdout")
+
+# Perform tuning
+lrn_tune <- tuneParams(learner = lrn, task = task, resampling = holdout,
+                       control = ctrl_random, par.set = param_set)
+
+# Generate hyperparameter effect data
+hyperpar_effects <- generateHyperParsEffectData(lrn_tune, partial.dep = TRUE)
+
+# Plot hyperparameter effects
+plotHyperParsEffect(hyperpar_effects, 
+                    partial.dep.learn = "regr.glm",
+                    x = "minsplit", y = "mmce.test.mean", z = "maxdepth",
+                    plot.type = "line")
+
+```
+
+
+## Define aggregated measures
+Now, you are going to define performance measures. 
+The knowledge_train_data dataset has already been loaded for you,
+as have the packages mlr and tidyverse. And the following code has also been run:
+
+
+```{r}
+
+task <- makeClassifTask(data = knowledge_train_data, 
+                        target = "UNS")
+
+lrn <- makeLearner(cl = "classif.nnet", fix.factors.prediction = TRUE)
+
+param_set <- makeParamSet(
+    makeIntegerParam("size", lower = 1, upper = 5),
+    makeIntegerParam("maxit", lower = 1, upper = 300),
+    makeNumericParam("decay", lower = 0.0001, upper = 1)
+)
+
+ctrl_random <- makeTuneControlRandom(maxit = 10)
+
+
+# Create holdout sampling
+holdout <- makeResampleDesc("Holdout", predict = "both")
+
+# Perform tuning
+lrn_tune <- tuneParams(learner = lrn, 
+                       task = task, 
+                       resampling = holdout, 
+                       control = ctrl_random, 
+                       par.set = param_set,
+                       measures = list(acc,
+                                       setAggregation(acc, train.mean), mmce,
+                                       setAggregation(mmce, train.mean)))
+
+
+```
+
+
+## Setting hyperparameters
+And finally, you are going to set specific hyperparameters,
+which you might have found by examining your tuning results from before, 
+The knowledge_train_data dataset has already been loaded for you, as 
+have the packages mlr and tidyverse. And the following code has also been run:
+
+```{r}
+task <- makeClassifTask(data = knowledge_train_data, 
+                        target = "UNS")
+
+lrn <- makeLearner(cl = "classif.nnet", fix.factors.prediction = TRUE)
+
+
+# Set hyperparameters
+lrn_best <- setHyperPars(lrn, par.vals = list(size = 1, 
+                                              maxit = 150, 
+                                              decay = 0))
+
+# Train model
+model_best <- train(lrn_best, task)
+
+model_best
+```
+
+
+## Prepare data for modelling with h2o
+In order to train models with h2o, you need to prepare
+the data according to h2o's specific needs. Here,
+you will go over a common data preparation workflow in h2o.
+The h2o library has already been loaded for you, as has the
+seeds_train_data object.
+This chapter uses functions that can take some time to run, 
+so don't be surprised if it takes a little longer than usual to
+submit your answer. On rare occurrences, you may get a server error.
+If this is the case, just reload the page
+```{r}
+library(h2o)
+seeds_train_data <- fread("seeds_train_data.csv")
+# Initialise h2o cluster
+h2o.init()
+
+# Convert data to h2o frame
+seeds_train_data_hf <- as.h2o(seeds_train_data)
+
+# Identify target and features
+y <- "seed_type"
+x <- setdiff(colnames(seeds_train_data_hf), y)
+
+# Split data into train & validation sets
+sframe <- h2o.splitFrame(seeds_train_data_hf, seed = 42)
+train <- sframe[[1]]
+valid <- sframe[[2]]
+
+# Calculate ratio of the target variable in the training set
+summary(train$seed_type, exact_quantiles = TRUE)
+```
+
+## Modeling with h2o
+In the last exercise, you successfully prepared data 
+for modeling with h2o. Now, you can use this data to train a model. 
+The h2o library has already been loaded for you, as has the 
+seeds_train_data object and the following code has been run:
+
+```{r}
+h2o.init()
+seeds_train_data_hf <- as.h2o(seeds_train_data)
+
+y <- "seed_type"
+x <- setdiff(colnames(seeds_train_data_hf), y)
+
+seeds_train_data_hf[, y] <- as.factor(seeds_train_data_hf[, y])
+
+sframe <- h2o.splitFrame(seeds_train_data_hf, seed = 42)
+train <- sframe[[1]]
+valid <- sframe[[2]]
+
+# Train random forest model
+rf_model <- h2o.randomForest(x = x,
+                             y = y,
+                             training_frame = train,
+                             validation_frame = valid)
+
+# Calculate model performance
+perf <- h2o.performance(rf_model, valid = TRUE)
+
+# Extract confusion matrix
+h2o.confusionMatrix(perf)
+
+# Extract logloss
+h2o.logloss(perf)
+```
+
+
+## Grid search with h2o
+Now that you successfully trained a Random Forest model with h2o, 
+you can apply the same concepts to training all other algorithms, 
+like Deep Learning. In this exercise, you are going to apply a grid search to tune a model.
+The h2o library has already been loaded and initialized for you.
+
+
+```{r}
+# Define hyperparameters
+dl_params <- list(hidden = list(c(50, 50), c(100, 100)),
+                  epochs = c(5, 10, 15),
+                  rate = c(0.001, 0.005, 0.01))
+
+```
+
+
+## Random search with h2o
+Next, you will use random search. 
+The h2o library and seeds_train_data have 
+already been loaded for you and the following code has been run:
+
+
+
+```{r}
+h2o.init()
+seeds_train_data_hf <- as.h2o(seeds_train_data)
+
+y <- "seed_type"
+x <- setdiff(colnames(seeds_train_data_hf), y)
+
+seeds_train_data_hf[, y] <- as.factor(seeds_train_data_hf[, y])
+
+sframe <- h2o.splitFrame(seeds_train_data_hf, seed = 42)
+train <- sframe[[1]]
+valid <- sframe[[2]]
+
+dl_params <- list(hidden = list(c(50, 50), c(100, 100)),
+                  epochs = c(5, 10, 15),
+                  rate = c(0.001, 0.005, 0.01))
+
+# Define search criteria
+search_criteria <- list(strategy = "RandomDiscrete", 
+                        max_runtime_secs = 10, # this is way too short & only used to keep runtime short!
+                        seed = 42)
+
+# Train with random search
+dl_grid <- h2o.grid("deeplearning", 
+                    grid_id = "dl_grid",
+                    x = x, 
+                    y = y,
+                    training_frame = train,
+                    validation_frame = valid,
+                    seed = 42,
+                    hyper_params = dl_params,
+                    search_criteria = search_criteria)
+                    
+```
+
+
+## Stopping criteria
+In random search, you can also define stopping criteria
+instead of a maximum runtime. The h2o library and seeds_train_data 
+has already been loaded and initialized for you.
+
+```{r}
+# Define early stopping
+stopping_params <- list(strategy = "RandomDiscrete", 
+                        stopping_metric = "misclassification",
+                        stopping_rounds = 2, 
+                        stopping_tolerance = 0.1,
+                        seed = 42)
+
+```
+
+
+## AutoML in h2o
+A very convenient functionality of h2o is automatic machine
+learning (AutoML). The h2o library and seeds_train_data have 
+already been loaded for you and the following code has been run
+
+```{r}
+h2o.init()
+seeds_train_data_hf <- as.h2o(seeds_train_data)
+
+y <- "seed_type"
+x <- setdiff(colnames(seeds_train_data_hf), y)
+
+seeds_train_data_hf[, y] <- as.factor(seeds_train_data_hf[, y])
+
+sframe <- h2o.splitFrame(seeds_train_data_hf, seed = 42)
+train <- sframe[[1]]
+valid <- sframe[[2]]
+
+
+# Run automatic machine learning
+automl_model <- h2o.automl(x = x, 
+                           y = y,
+                           training_frame = train,
+                           max_runtime_secs = 10,
+                           sort_metric = "mean_per_class_error",
+                           nfolds = 3,
+                           seed = 42)
+
+
+# Run automatic machine learning
+automl_model <- h2o.automl(x = x, 
+                           y = y,
+                           training_frame = train,
+                           max_runtime_secs = 10,
+                           sort_metric = "mean_per_class_error",
+                           validation_frame= valid,
+                           seed = 42)
+
+
+```
+
+Correct! With training_frame + validation_frame,
+training data is used as is, validation set is
+split 50/50 into validation and leaderboard data.'
+
+
+##Extract h2o models and evaluate performance
+In this final exercise, you will extract the best model
+from the AutoML leaderboard. The h2o library and test data has been loaded and the following code has been run:
+
+```{r}
+seeds_data <- read_csv("seeds_data.csv")
+
+seeds_data_hf <- as.h2o(seeds_data)
+
+y <- "seed_type"
+x <- setdiff(colnames(seeds_data ), y)
+
+seeds_data_hf[, y] <- as.factor(seeds_data_hf[, y])
+
+automl_model <- h2o.automl(x = x, 
+                           y = y,
+                           training_frame = seeds_data_hf,
+                           nfolds = 3,
+                           max_runtime_secs = 60,
+                           sort_metric = "mean_per_class_error",
+                           seed = 42)
+
+
+# Extract the leaderboard
+lb <- automl_model@leaderboard
+head(lb)
+
+# Assign best model new object name
+aml_leader <- automl_model@leader
+
+# Look at best model
+summary(aml_leader)
+
+
+
+```
+

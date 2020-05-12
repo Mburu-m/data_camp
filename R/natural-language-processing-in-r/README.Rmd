@@ -1,0 +1,669 @@
+---
+title: "Natural Language Processing"
+author: "Mburu"
+date: "4/7/2020"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+## Practicing syntax with grep
+You have just completed an ice-breaker exercise
+at work and you recorded 10 facts about your boss.
+You saved these 10 facts into a vector named text. 
+Using regular expressions, you want to summarize your bosses' responses.
+A few notes on regular expressions in R:
+When using grep(), setting value = TRUE will print the text instead of the indices.
+You can combine patterns such as a digit, '\\d', followed by a period '\\., with '\\d\\.'
+Spaces can be found using '\\s'.
+You can search for a word by simply using the word as your pattern. pattern = 'word'
+
+```{r}
+library(tidyverse)
+library(tidytext)
+library(SnowballC)
+library(tm)
+library(widyr)
+library(knitr)
+
+# Print off each item that contained a numeric number
+text <- c("John's favorite color two colors are blue and red.",
+          "John's favorite number is 1111.",
+          "John lives at P Sherman, 42 Wallaby Way, Sydney", 
+          "He is 7 feet tall", "John has visited 30 countries",
+          "John only has nine fingers.", "John has worked at eleven different jobs",
+          "He can speak 3 languages", "john's favorite food is pizza", 
+          "John can name 10 facts about himself.")
+
+
+
+grep(pattern ="\\d", x = text, value = TRUE)
+
+# Find all items with a number followed by a space
+grep(pattern = "\\d\\s", x = text)
+
+# How many times did you write down 'favorite'?
+length(grep(pattern ='favorite', x = text))
+
+
+```
+
+
+## Exploring regular expression functions.
+You have a vector of ten facts about your boss
+saved as a vector called text. In order to create a
+new ice-breaker for your team at work, you need to 
+remove the name of your boss, John, from each fact 
+that you have written down. This can easily be done
+using regular expressions
+(as well as other search/replace functions). Use regular
+expressions to correctly replace "John" from the facts you have written about him.'
+
+
+```{r}
+# Print off the text for every time you used your boss's name, John
+grep('John', x = text, value = TRUE)
+
+# Try replacing all occurences of "John" with "He"
+gsub(pattern = 'John', replacement = 'He', x = text)
+
+# Replace all occurences of "John " with 'He '.
+clean_text <- gsub(pattern = 'John\\s', replacement = 'He ', x = text)
+clean_text
+
+# Replace all occurences of "John's" with 'His'
+gsub(pattern = "John\\'s", replacement = 'His', x = clean_text)
+
+
+```
+
+
+
+## Text preprocessing: remove stop words
+Stop words are unavoidable in writing.
+However, to determine how similar two pieces of
+text are to each other are or when trying to find themes 
+within text, stop words can make things difficult.
+In the book Animal Farm, the first chapter contains 
+only 2,636 words, while almost 200 of them are the word 'the'
+
+Usually, 'the' will not help us in text analysis projects.
+In this exercise you will remove the stop words from the first chapter of Animal Farm.
+Tokenization: sentences
+Animal Farm is a popular book for middle school English teachers to
+assign to their students. You have decided to do some exploration on the 
+text and provide summary statistics for teachers to use when assigning this 
+book to their students. You already know that there are 10 chapters, but you
+also know that you can use tokenization to help count the number of sentences,
+words, and even paragraphs. In this exercise, you will use the tokenization 
+techniques learned in the video to help split Animal Farm into sentences and count them by chapter.
+"
+
+
+
+```{r}
+
+animal_farm <- read_csv("animal_farm.csv")
+
+# Split the text_column into sentences
+animal_farm %>%
+    unnest_tokens(output = "sentences",
+                  input = text_column,
+                  token = "sentences") %>%
+    # Count sentences, per chapter
+    count(chapter) %>%
+    kable()
+# Split the text_column using regular expressions
+
+animal_farm %>%
+    unnest_tokens(output = "sentences", input = text_column,
+                  token = "regex", pattern = "\\.") %>%
+    count(chapter) %>%
+    kable()
+```
+
+
+## Text preprocessing: remove stop words
+Stop words are unavoidable in writing. However,
+to determine how similar two pieces of text are
+to each other are or when trying to find themes 
+within text, stop words can make things difficult.
+In the book Animal Farm, the first chapter contains
+only 2,636 words, while almost 200 of them are the word 'the'.
+
+Usually, 'the' will not help us in text analysis projects.
+In this exercise you will remove the stop words from the first chapter of Animal Farm."
+
+```{r}
+
+# Tokenize animal farm's text_column column
+tidy_animal_farm <- animal_farm %>%
+  unnest_tokens(word, text_column) 
+
+# Print the word frequencies
+tidy_animal_farm %>%
+  count(word, sort = TRUE) %>%
+    head() %>%
+    kable()
+
+# Remove stop words, using stop_words from tidytext
+tidy_animal_farm %>%
+  anti_join(stop_words) %>%
+    head() %>%
+    kable()
+
+```
+
+## Text preprocessing: Stemming
+The root of words are often more 
+important than their endings, especially when it
+comes to text analysis. The book Animal Farm is
+obviously about animals. However, knowing that 
+the book mentions animals 248 times,
+and animal 107 times might not be helpful for your analysis.
+tidy_animal_farm contains a tibble of the words from Animal Farm, 
+tokenized and without stop words. The next step is to stem the words and explore the results.
+
+
+```{r}
+library(SnowballC)
+# Perform stemming on tidy_animal_farm
+stemmed_animal_farm <- tidy_animal_farm %>%
+    mutate(word = wordStem(word))
+
+# Print the old word frequencies 
+tidy_animal_farm %>%
+    count(word, sort = T)
+
+# Print the new word frequencies
+stemmed_animal_farm %>%
+    count(word, sort = T)
+
+```
+
+
+## Explore an R corpus
+One of your coworkers has prepared a corpus of 
+20 documents discussing crude oil, named crude. 
+This is only a sample of several thousand articles 
+you will receive next week. In order to get ready for 
+running text analysis on these documents, you have decided
+to explore their content and metadata.
+Remember that in R, a VCorpus contains both meta 
+and content regarding each text. In this lesson, you will explore these two objects.'
+
+```{r}
+# Print out the corpus
+data(crude)
+
+
+# Print the content of the 10th article
+crude[[10]]$content
+
+# Find the first ID
+crude[[1]]$meta$id
+
+# Make a vector of IDs
+ids <- c()
+for(i in c(1:20)){
+    ids <- append(ids, crude[[i]]$meta$id)
+}
+
+```
+
+
+
+## Creating a tibble from a corpus
+To further explore the corpus on crude oil
+data that you received from a coworker, you have 
+decided to create a pipeline to clean the text contained 
+in the documents. Instead of exploring how to do this with 
+the tm package, you have decided to transform the corpus into
+a tibble so you can use the functions unnest_tokens(), count(),
+and anti_join() that you are already familiar with. 
+The corpus crude contains both the metadata and the text of each document.
+
+
+
+```{r}
+# Create a tibble & Review
+crude_tibble <- tidy(crude)
+names(crude_tibble)
+
+crude_counts <- crude_tibble %>%
+    # Tokenize by word 
+    unnest_tokens(word, text) %>%
+    # Count by word
+    count(word, sort = TRUE) %>%
+    # Remove stop words
+    anti_join(stop_words)
+
+```
+
+
+
+## Creating a corpus
+You have created a tibble called russian_tweets that
+contains around 20,000 tweets auto generated by bots
+during the 2016 U.S. election cycle so that you can 
+preform text analysis. However, when searching through 
+the available options for performing the analysis you have 
+chosen to do, you believe that the tm package offers the 
+easiest path forward. In order to conduct the analysis, 
+you first must create a corpus and attach potentially useful metadata.
+
+Be aware that this is real data from Twitter and as such there is always 
+a risk that it may contain profanity or other offensive content 
+(in this exercise, and any following exercises that also use real Twitter data).
+
+```{r}
+# Create a corpus
+russian_tweets <- read_csv("russian_1.csv")
+tweet_corpus <- VCorpus(VectorSource(russian_tweets$content))
+
+# Attach following and followers
+meta(tweet_corpus, 'following') <- russian_tweets$following
+meta(tweet_corpus, 'followers') <- russian_tweets$followers
+
+# Review the meta data
+head(meta(tweet_corpus))
+
+```
+
+
+
+## BoW Example
+In literature reviews, researchers read and summarize as many 
+available texts about a subject as possible. Sometimes they end up 
+reading duplicate articles, or summaries of articles they have already read.
+You have been given 20 articles about crude oil as an R object named crude_tibble.
+Instead of jumping straight to reading each article, you have decided to see what
+words are shared across these articles. To do so, you will start by building a
+bag-of-words representation of the text.
+
+```{r}
+# Count occurrence by article_id and word
+data.table::setnames(crude_tibble, "id", "article_id")
+words <- crude_tibble %>%
+    unnest_tokens(output = "word", token = "words", input = text) %>%
+    anti_join(stop_words) %>%
+    count(article_id, word, sort=TRUE)
+
+# How many different word/article combinations are there?
+unique_combinations <- nrow(words)
+
+# Filter to responses with the word "prices"
+words_with_prices <- words %>%
+    filter(word == "prices")
+
+# How many articles had the word "prices"?
+number_of_price_articles <- nrow(words_with_prices)
+
+```
+
+
+
+## Sparse matrices
+During the video lesson you learned about sparse matrices. 
+Sparse matrices can become computational nightmares as the
+number of text documents and the number of unique words grow. 
+Creating word representations with tweets can easily create 
+sparse matrices because emojis, slang, acronyms, and other forms of language are used.
+In this exercise you will walk through the steps to calculate how sparse the Russian tweet dataset is.
+Note that this is a small example of how quickly text analysis can become a major computational problem.
+
+
+```{r}
+# Tokenize and remove stop words
+tidy_tweets <- russian_tweets %>%
+  unnest_tokens(word, content) %>%
+  anti_join(stop_words)
+
+
+# Count by word
+unique_words <- tidy_tweets %>%
+  count(word)
+
+# Count by tweet (tweet_id) and word
+unique_words_by_tweet <- tidy_tweets %>%
+  count(tweet_id, word)
+
+# Find the size of matrix
+size <- nrow(russian_tweets) * nrow(unique_words)
+# Find percent of entries that would have a value
+percent <- nrow(unique_words_by_tweet ) / size
+percent
+
+```
+
+
+
+
+
+
+## TFIDF Practice
+Earlier you looked at a bag-of-words representation 
+of articles on crude oil. Calculating TFIDF values 
+relies on this bag-of-words representation, but takes into 
+account how often a word appears in an article, and how often
+that word appears in the collection of articles.
+To determine how meaningful words would be when comparing 
+different articles, calculate the TFIDF weights for the words in crude, 
+a collection of 20 articles about crude oil.
+
+```{r}
+# Create a tibble with TFIDF values
+crude_weights <- crude_tibble %>%
+  unnest_tokens(output = "word", token = "words", input = text) %>%
+  anti_join(stop_words) %>%
+  count(article_id, word) %>%
+  bind_tf_idf(word, article_id, n)
+
+# Find the highest TFIDF values
+crude_weights %>%
+  arrange(desc(tf_idf))
+
+# Find the lowest non-zero TFIDF values
+crude_weights %>%
+  filter(tf_idf != 0) %>%
+  arrange(tf_idf)
+
+
+
+```
+
+
+
+
+## An example of failing at text analysis
+Early on, you discussed the power of removing stop 
+words before conducting text analysis. In this most
+recent chapter, you reviewed using cosine similarity to 
+identify texts that are similar to each other.
+
+In this exercise, you will explore the very real
+possibility of failing to use text analysis properly. You will
+compute cosine similarities for the chapters in the book Animal Farm,
+without removing stop-words.
+
+
+```{r}
+# Create word counts
+animal_farm_counts <- animal_farm %>%
+  unnest_tokens(word, text_column) %>%
+  count(chapter, word)
+
+# Calculate the cosine similarity by chapter, using words
+comparisons <- animal_farm_counts %>%
+  pairwise_similarity(chapter, word, n) %>%
+  arrange(desc(similarity))
+
+# Print the mean of the similarity values
+comparisons %>%
+  summarize(mean = mean(similarity))
+
+
+```
+
+
+
+
+## Cosine similarity example
+The plot of Animal Farm is pretty simple. In the beginning the 
+animals are unhappy with following their human leaders. In the 
+middle they overthrow those leaders, and in the end they become unhappy 
+with the animals that eventually became their new leaders.
+
+If done correctly, cosine similarity can help identify documents 
+(chapters) that are similar to each other. In this exercise, you will
+identify similar chapters in Animal Farm. Odds are, chapter 1 (the beginning) 
+and chapter 10 (the end) will be similar.
+
+
+```{r}
+# Create word counts 
+animal_farm_counts <- animal_farm %>%
+  unnest_tokens(word, text_column) %>%
+  anti_join(stop_words) %>%
+  count(chapter, word) %>%
+  bind_tf_idf(chapter, word, n)
+
+# Calculate cosine similarity on word counts
+animal_farm_counts %>%
+  pairwise_similarity(chapter, word, n) %>%
+  arrange(desc(similarity))
+# Calculate cosine similarity using tf_idf values
+animal_farm_counts %>%
+  pairwise_similarity(chapter, word, tf_idf) %>%
+  arrange(desc(similarity))
+
+
+```
+
+
+
+
+## Data preparation
+During the 2016 US election, Russian tweet bots were
+used to constantly distribute political rhetoric to both
+democrats and republicans. You have been given a dataset of 
+such tweets called russian_tweets. You have decided to classify these tweets
+as either left- (democrat) or right-leaning(republican). 
+Before you can build a classification model, you need to clean and prepare the text for modeling.
+
+
+```{r}
+library(randomForest)
+# Stem the tokens
+russian_tweets <- read_csv("russian_1.csv")
+russian_tokens <- russian_tweets %>%
+    unnest_tokens(output = "word", token = "words", input = content) %>%
+    anti_join(stop_words) %>%
+    mutate(word = wordStem(word))
+
+# Create a document term matrix using TFIDF weighting
+tweet_matrix <- russian_tokens %>%
+    count(tweet_id, word) %>%
+    cast_dtm(document = tweet_id, term = word,
+             value = n, weighting = tm::weightTfIdf)
+
+# Print the matrix details 
+print(tweet_matrix)
+
+#removing sparse terms
+
+less_sparse_matrix <-
+    removeSparseTerms(tweet_matrix , sparse =.9999)
+
+# Print results
+tweet_matrix
+less_sparse_matrix
+```
+
+
+
+
+
+## Classification modeling example
+You have previously prepared a set of Russian 
+tweets for classification. Of the 20,000 tweets,
+you have filtered to tweets with an account_type of Left or Right, 
+and selected the first 2000 tweets of each. You have already tokenized
+the tweets into words, removed stop words, and performed stemming. 
+Furthermore, you converted word counts into a document-term matrix with TFIDF 
+values for weights and saved this matrix as: left_right_matrix_small.
+
+You will use this matrix to predict whether a tweet was generated 
+from a left-leaning tweet bot, or a right-leaning tweet bot. 
+The labels can be found in the vector, left_right_labels.'
+
+```{r}
+nrow(less_sparse_matrix)
+library(randomForest)
+
+# Create train/test split
+set.seed(1111)
+sample_size <- floor(.75 * nrow(less_sparse_matrix))
+train_ind <- sample(nrow(less_sparse_matrix), size = sample_size)
+train <- less_sparse_matrix[train_ind, ]
+test <- less_sparse_matrix[-train_ind, ]
+
+# Create a random forest classifier
+x_train <-  as.data.frame(as.matrix(train))
+left_right_labels <-russian_tweets$account_type %>% as.factor()
+#left_right_labels <- facto
+y_train <- left_right_labels[train_ind]
+
+rfc <- randomForest(x =x_train, 
+                    y = y_train,
+                    nTree = 50, )
+# Print the results
+rfc 
+```
+
+
+
+## Confusion matrices
+You have just finished creating a classification model. 
+This model predicts whether tweets were created by a 
+left-leaning (democrat) or right-leaning (republican) tweet bot.
+You have made predictions on the test data and have the following result:
+
+Predictions	Left	Right
+Left	350	157
+Right	57	436
+Use the confusion matrix above to answer questions about the models accuracy.
+
+
+
+
+
+```{r}
+# Percentage correctly labeled "Left"
+left <- (350) / (350 + 157)
+left
+
+# Percentage correctly labeled "Right"
+right <- (436) / (57 + 436)
+right
+
+# Overall Accuracy:
+accuracy <- (350 +  436) / (350 + 157 + 57 + 436)
+accuracy
+```
+
+
+'LDA practice
+You are interested in the common themes surrounding the character
+Napoleon in your favorite new book, Animal Farm. Napoleon is a Pig 
+who convinces his fellow comrades to overthrow their human leaders. 
+He also eventually becomes the new leader of Animal Farm.
+
+You have extracted all of the sentences that mention Napoleons name,
+pig_sentences, and created tokenized version of these sentences with 
+stop words removed and stemming completed, pig_tokens. Complete LDA on t
+hese sentences and review the top words associated with some of the topics.'
+
+
+
+library(topicmodels)
+# Perform Topic Modeling
+sentence_lda <-
+    LDA(pig_matrix, k = 10, method = 'Gibbs', control = list(seed = 1111))
+# Extract the beta matrix 
+sentence_betas <- tidy(sentence_lda, matrix = "beta")
+
+# Topic #2
+sentence_betas %>%
+    filter(topic == 2) %>%
+    arrange(-beta)
+# Topic #3
+sentence_betas %>%
+    filter(topic ==  3) %>%
+    arrange(-beta)
+
+
+"Assigning topics to documents
+Creating LDA models are useless unless you can
+interpret and use the results. You have been given the
+results of running an LDA model, sentence_lda on a set
+of sentences, pig_sentences. You need to explore both the beta,
+top words by topic, and the gamma, top topics per document, 
+matrices to fully understand the results of any LDA analysis.
+
+Given what you know about these two matrices, extract the 
+results for a specific topic and see if the output matches expectations."
+
+# Extract the beta and gamma matrices
+sentence_betas <- tidy(sentence_lda, matrix = "beta")
+sentence_gammas <- tidy(sentence_lda, matrix = "gamma")
+
+# Explore Topic 5 Betas
+sentence_betas %>%
+    filter(topic == 5) %>%
+    arrange(-beta)
+
+# Explore Topic 5 Gammas
+sentence_gammas %>%
+    filter(topic == 5) %>%
+    arrange(-gamma)
+
+
+
+
+"Testing perplexity
+You have been given a dataset full of tweets that were sent
+by tweet bots during the 2016 US election. Your boss has identified two
+different account types of interest, Left and Right. Your boss has asked you
+to perform topic modeling on the tweets from Right tweet bots. Furthermore,
+your boss is hoping to summarize the content of these tweets with topic modeling.
+Perform topic modeling on 5, 15, and 50 topics to determine a general idea of how 
+many topics are contained in the data."
+
+
+library(topicmodels)
+# Setup train and test data
+sample_size <- floor(0.90 * nrow(right_matrix))
+set.seed(1111)
+train_ind <- sample(nrow(right_matrix), size = sample_size)
+train <- right_matrix[train_ind, ]
+test <- right_matrix[-train_ind, ]
+
+# Peform topic modeling 
+lda_model <- LDA(train, k = 50, method = "Gibbs",
+                 control = list(seed = 1111))
+# Train
+perplexity(lda_model, newdata = train) 
+# Test
+perplexity(lda_model, newdata = test) 
+
+"Reviewing LDA results
+You have developed a topic model, napoleon_model,
+with 5 topics for the sentences from the book Animal Farm
+that reference the main character Napoleon. You have had 5 local 
+authors review the top words and top sentences for each topic and
+they have provided you with themes for each topic.
+To finalize your results, prepare some summary statistics about the topics.
+You will present these summary values along with the themes to your boss for review."
+
+
+# Extract the gamma matrix 
+gamma_values <- tidy(napoleon_model, matrix = "gamma")
+# Create grouped gamma tibble
+grouped_gammas <- gamma_values %>%
+    group_by(document) %>%
+    arrange(desc(gamma)) %>%
+    slice(1) %>%
+    group_by(topic)
+# Count (tally) by topic
+grouped_gammas %>% 
+    tally(topic, sort=TRUE)
+# Average topic weight for top topic for each sentence
+grouped_gammas %>% 
+    summarise(avg=mean(gamma)) %>%
+    arrange(desc(avg))
+
+
+
