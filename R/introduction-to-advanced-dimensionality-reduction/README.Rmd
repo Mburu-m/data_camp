@@ -1,0 +1,1134 @@
+---
+title: "Introduction to advanced dimensionality reduction"
+author: "Mburu"
+date: "4/8/2020"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+## Exploring MNIST dataset
+You will use the MNIST dataset in several exercises 
+through the course. Let's do some data exploration to gain
+a better understanding. Remember that the MNIST dataset 
+contains a set of records that represent handwritten digits 
+using 28x28 features, which are stored into a 784-dimensional vector.
+
+mnistInput
+![degit 3.](MNIST_input_ex.png)
+Each record of the MNIST dataset corresponds to a 
+handwritten digit and each feature represents one pixel of the digit image.
+In this exercise, a sample of 200 records of the MNIST dataset 
+named mnist_sample is loaded for you.
+
+
+```{r}
+
+load("mnist-sample-200.RData")
+# Have a look at the MNIST dataset names
+#names(mnist_sample)
+
+# Show the first records
+#str(mnist_sample)
+
+# Labels of the first 6 digits
+head(mnist_sample$label)
+```
+
+## Digits features
+Let's continue exploring the dataset.
+Firstly, it would be helpful to know how many different
+digits are present by computing a histogram of the labels.
+Next, the basic statistics (min, mean, median, maximum) of 
+the features for all digits can be calculated. Finally, you 
+will compute the basic statistics for only those digits with label 0.
+The MNIST sample data is loaded for you as mnist_sample.
+
+
+```{r }
+# Plot the histogram of the digit labels
+hist(mnist_sample$label)
+
+# Compute the basic statistics of all records
+#summary(mnist_sample)
+
+# Compute the basic statistics of digits with label 0
+#summary(mnist_sample[, mnist_sample$label == 0])
+```
+
+
+
+## Euclidean distance
+Euclidean distance is the basis of many measures
+of similarity and is the most important distance metric. 
+You can compute the Euclidean distance in R using the dist() function. 
+In this exercise, you will compute the Euclidean distance between the first 10 records of the MNIST sample data.
+
+The mnist_sample object is loaded for you.
+
+
+```{r}
+# Show the labels of the first 10 records
+mnist_sample$label[1:10]
+
+# Compute the Euclidean distance of the first 10 records
+distances <- dist(mnist_sample[1:10, -1])
+
+# Show the distances values
+distances
+
+# Plot the numeric matrix of the distances in a heatmap
+heatmap(as.matrix(distances), 
+    	Rowv = NA, symm = TRUE, 
+        labRow = mnist_sample$label[1:10], 
+        labCol = mnist_sample$label[1:10])
+```
+
+
+## Minkowsky distance
+There are other well-known distance metrics besides the Euclidean distance,
+like the Minkowski distance. This metric can be considered a generalisation 
+of both the Euclidean and Manhattan distance. In R, you can calculate
+the Minkowsky distance of order p by using dist(..., method = "minkowski", p).
+
+The MNIST sample data is loaded for you as mnist_sample
+
+
+```{r}
+# Minkowski distance or order 3
+distances_3 <- dist(mnist_sample[1:10, -1], method = "minkowski", p = 3)
+
+distances_3 
+
+heatmap(as.matrix(distances_3 ), 
+        Rowv = NA, symm = TRUE, 
+        labRow = mnist_sample$label[1:10], 
+        labCol = mnist_sample$label[1:10])
+
+# Minkowski distance of order 2
+distances_2 <- dist(mnist_sample[1:10, -1], method = "minkowski", p = 2)
+distances_2
+heatmap(as.matrix(distances_2), 
+        Rowv = NA, symm = TRUE, 
+        labRow = mnist_sample$label[1:10], 
+        labCol = mnist_sample$label[1:10])
+```
+
+- Very Good! As you can see, when using Minkowski distance of order 2 
+the most similar digits are in positions 3 and 5 of the heatmap grid which corresponds to digits 7 and 9.
+
+
+## KL divergence
+There are more distance metrics that can be used to compute 
+how similar two feature vectors are. For instance, the philentropy 
+package has the function distance(), which implements 46 different
+distance metrics. For more information, use ?distance in the console.
+In this exercise, you will compute the KL divergence and check if 
+the results differ from the previous metrics. Since the KL divergence
+is a measure of the difference between probability distributions you 
+need to rescale the input data by dividing each input feature by the
+total pixel intensities of that digit.
+The philentropy package and mnist_sample data have been loaded.
+
+
+```{r}
+library(philentropy)
+library(tidyverse)
+# Get the first 10 records
+mnist_10 <- mnist_sample[1:10, -1]
+
+# Add 1 to avoid NaN when rescaling
+mnist_10_prep <- mnist_10 + 1 
+
+# Compute the sums per row
+sums <- rowSums(mnist_10_prep)
+
+# Compute KL divergence
+distances <- distance(mnist_10_prep/sums, method = "kullback-leibler")
+heatmap(as.matrix(distances), 
+        Rowv = NA, symm = TRUE, 
+        labRow = mnist_sample$label[1:10], 
+        labCol = mnist_sample$label[1:10])
+```
+
+
+## Generating PCA from MNIST sample
+You are going to compute a PCA with the previous mnist_sample dataset.
+The goal is to have a good representation of each digit in a lower dimensional space. 
+PCA will give you a set of variables, named principal components, that are a linear 
+combination of the input variables. These principal components are ordered in terms 
+of the variance they capture from the original data. So, if you plot the first two 
+principal components you can see the digits in a 2-dimensional space.
+A sample of 200 records of the MNIST dataset named mnist_sample is loaded for you.
+
+```{r}
+# Get the principal components from PCA
+pca_output <- prcomp(mnist_sample[, -1])
+
+# Observe a summary of the output
+#summary(pca_output)
+
+# Store the first two coordinates and the label in a data frame
+pca_plot <- data.frame(pca_x = pca_output$x[, "PC1"], pca_y = pca_output$x[, "PC2"], 
+                       label = as.factor(mnist_sample$label))
+
+# Plot the first two principal components using the true labels as color and shape
+ggplot(pca_plot, aes(x = pca_x, y = pca_y, color = label)) + 
+	ggtitle("PCA of MNIST sample") + 
+	geom_text(aes(label = label)) + 
+	theme(legend.position = "none")
+```
+
+
+
+## t-SNE output from MNIST sample
+
+You have seen that PCA has some limitations in correctly classifying digits, 
+mainly due to its linear nature. In this exercise, you are going to use the 
+output from the t-SNE algorithm on the MNIST sample data, named tsne_output 
+and visualize the obtained results. In the next chapter, you will focus on 
+the t-SNE algorithm and learn more about how to use it!
+The MNIST sample dataset mnist_sample as well as the tsne_output are available in your workspace.
+
+
+```{r}
+# Explore the tsne_output structure
+library(Rtsne)
+library(tidyverse)
+tsne_output <- Rtsne(mnist_sample[, -1])
+#str(tsne_output)
+
+# Have a look at the first records from the t-SNE output
+#head(tsne_output)
+
+# Store the first two coordinates and the label in a data.frame
+tsne_plot <- data.frame(tsne_x = tsne_output$Y[, 1], tsne_y = tsne_output$Y[, 2], 
+                        label = as.factor(mnist_sample$label))
+
+# Plot the t-SNE embedding using the true labels as color and shape
+ggplot(tsne_plot, aes(x =tsne_x, y = tsne_y, color = label)) + 
+	ggtitle("T-Sne output") + 
+	geom_text(aes(label = label)) + 
+	theme(legend.position = "none")
+```
+
+
+
+## Computing t-SNE
+As we have seen, the t-SNE embedding can be computed in R using 
+the Rtsne() function from the Rtsne package in CRAN. Performing a
+PCA is a common step before running the t-SNE algorithm, but we 
+can skip this step by setting the parameter PCA to FALSE. The 
+dimensionality of the embedding generated by t-SNE can be indicated
+with the dims parameter.
+In this exercise, we will generate a three-dimensional embedding
+from the mnist_sample dataset without doing the PCA step and then, 
+we will plot the first two dimensions.
+The MNIST sample dataset mnist_sample, as well as the
+Rtsne and ggplot2 packages, are already loaded.
+
+
+```{r}
+# Compute t-SNE without doing the PCA step
+tsne_output <- Rtsne(mnist_sample[,-1], PCA = FALSE, dim = 3)
+
+# Show the obtained embedding coordinates
+head(tsne_output$Y)
+
+# Store the first two coordinates and plot them 
+tsne_plot <- data.frame(tsne_x = tsne_output$Y[, 1], tsne_y = tsne_output$Y[, 2], 
+                        digit = as.factor(mnist_sample$label))
+
+# Plot the coordinates
+ggplot(tsne_plot, aes(x = tsne_x, y = tsne_y, color = digit)) + 
+	ggtitle("t-SNE of MNIST sample") + 
+	geom_text(aes(label = digit)) + 
+	theme(legend.position = "none")
+```
+
+
+## Understanding t-SNE output
+The most important t-SNE output are those related to the K-L divergence
+of the points in the original high dimensions and in the new lower dimensional
+space. Remember that the goal of t-SNE is to minimize the K-L divergence
+between the original space and the new one.
+In the returned object, the itercosts structure indicates the total cost from 
+the K-L divergence of all the objects in each 50th iteration and the cost structure 
+indicates the K-L divergence of each record in the final iteration.
+The Rtsne package and the tsne_output object have been loaded for you.
+
+```{r}
+# Inspect the output object's structure
+str(tsne_output)
+
+# Show total costs after each 50th iteration
+tsne_output$itercosts
+
+# Plot the evolution of the KL divergence at each 50th iteration
+plot(tsne_output$itercosts, type = "l")
+
+# Inspect the output object's structure
+str(tsne_output)
+
+# Show the K-L divergence of each record after the final iteration
+tsne_output$costs
+
+# Plot the K-L divergence of each record after the final iteration
+plot(tsne_output$costs, type = "l")
+```
+
+
+## Reproducing results
+
+t-SNE is a stochastic algorithm, meaning there is some randomness
+inherent to the process. To ensure reproducible results it is
+necessary to fix a seed before every new execution. This way, 
+you can tune the algorithm hyper-parameters and isolate the 
+effect of the randomness. In this exercise, the goal is to 
+generate two embeddings and check that they are identical.
+The mnist_sample dataset is available in your workspace.
+
+
+```{r}
+# Generate a three-dimensional t-SNE embedding without PCA
+tsne_output <- Rtsne(mnist_sample[, -1], PCA = FALSE, dim = 3)
+
+# Generate a new t-SNE embedding with the same hyper-parameter values
+tsne_output_new <- Rtsne(mnist_sample[, -1], PCA = FALSE, dim = 3)
+
+# Check if the two outputs are identical
+identical(tsne_output, tsne_output_new)
+
+# Generate a three-dimensional t-SNE embedding without PCA
+set.seed(1234)
+tsne_output <- Rtsne(mnist_sample[, -1], PCA = FALSE, dims = 3)
+
+# Generate a new t-SNE embedding with the same hyper-parameter values
+set.seed(1234)
+tsne_output_new <- Rtsne(mnist_sample[, -1], PCA = FALSE, dims = 3)
+
+# Check if the two outputs are identical
+identical(tsne_output, tsne_output_new)
+```
+
+
+## Optimal number of iterations
+
+A common hyper-parameter to optimize in t-SNE is the optimal
+number of iterations. As you have seen before it is important
+to always use the same seed before you can compare different executions.
+To optimize the number of iterations, you can increase the max_iter 
+parameter of Rtsne() and observe the returned itercosts to find the minimum K-L divergence.
+The mnist_sample dataset and the Rtsne package have been loaded for you.
+
+
+```{r}
+# Set seed to ensure reproducible results
+set.seed(1234)
+
+# Execute a t-SNE with 2000 iterations
+tsne_output <- Rtsne(mnist_sample[, -1], max_iter = 2000,PCA = TRUE, dims = 2)
+
+# Observe the output costs 
+tsne_output$itercosts
+
+# Get the 50th iteration with the minimum K-L cost
+which.min(tsne_output$itercosts)
+```
+
+
+## Perplexity of MNIST sample
+
+The perplexity parameter indicates the balance between the 
+local and global aspect of the input data. The parameter is an estimate 
+of the number of close neighbors of each original point. Typical values
+of this parameter fall in the range of 5 to 50.
+We will generate three different t-SNE executions with the same number 
+of iterations and perplexity values of 5, 20, and 50 and observe the 
+differences in the K-L divergence costs. The optimal number of iterations
+we found in the last exercise (1200) will be used here.
+The mnist_sample dataset and the Rtsne package have been loaded for you.
+
+
+```{r}
+# Set seed to ensure reproducible results
+par(mfrow = c(3, 1))
+set.seed(1234)
+
+perp <- c(5, 20, 50)
+models <- list()
+for (i in 1:length(perp)) {
+        
+        # Execute a t-SNE with perplexity 5
+        perplexity  = perp[i]
+        tsne_output <- Rtsne(mnist_sample[, -1], perplexity = perplexity, max_iter = 1300)
+        # Observe the returned K-L divergence costs at every 50th iteration
+        models[[i]] <- tsne_output
+        plot(tsne_output$itercosts,
+             main = paste("Perplexity", perplexity),
+             type = "l", ylab = "itercosts")
+}
+
+
+names(models) <- paste0("perplexity",perp)
+
+```
+
+
+## Perplexity of bigger MNIST dataset
+
+Now, let's investigate the effect of the perplexity values with a bigger
+MNIST dataset of 10.000 records.
+It would take a lot of time to execute t-SNE for this many records on the DataCamp platform.
+This is why the pre-loaded output of two t-SNE embeddings with perplexity values of 5 and 50, 
+named tsne_output_5 and tsne_output_50 are available in the workspace.
+We will look at the K-L costs and plot them using the digit label from the mnist_10k dataset,
+which is also available in the environment.
+The Rtsne and ggplot2 packages have been loaded.
+
+* I used mnist smaller data set 
+
+```{r}
+# Observe the K-L divergence costs with perplexity 5 and 50
+tsne_output_5 <- models$perplexity5
+tsne_output_50  <- models$perplexity50
+# Generate the data frame to visualize the embedding
+tsne_plot_5 <- data.frame(tsne_x = tsne_output_5$Y[, 1], tsne_y = tsne_output_5$Y[, 2], digit = as.factor(mnist_sample$label))
+
+tsne_plot_50 <- data.frame(tsne_x = tsne_output_50$Y[, 1], tsne_y = tsne_output_50$Y[, 2], digit = as.factor(mnist_sample$label))
+
+# Plot the obtained embeddings
+ggplot(tsne_plot_5, aes(x = tsne_x, y = tsne_y, color = digit)) + 
+	ggtitle("MNIST t-SNE with 1300 iter and Perplexity=5") +
+	geom_text(aes(label = digit)) + 
+	theme(legend.position="none")
+ggplot(tsne_plot_50, aes(x = tsne_x, y = tsne_y, color = digit)) + 
+	ggtitle("MNIST t-SNE with 1300 iter and Perplexity=50") + 
+	geom_text(aes(label = digit)) + 
+	theme(legend.position="none")
+```
+
+
+## Plotting spatial distribution of true classes
+
+As seen in the video, you can use the obtained representation of
+t-SNE in a lower dimension space to classify new digits based on 
+the Euclidean distance to known clusters of digits. For this task,
+let's start with plotting the spatial distribution of the digit 
+labels in the embedding space. You are going to use the output of
+a t-SNE execution of 10K MNIST records named tsne and the true 
+labels can be found in a dataset named mnist_10k.
+In this exercise, you will use the first 5K records of tsne 
+and mnist_10k datasets and the goal is to visualize the obtained t-SNE embedding.
+The ggplot2 package has been loaded for you.
+
+
+```{r}
+library(data.table)
+mnist_10k <- readRDS("mnist_10k.rds") %>% setDT()
+tsne <- Rtsne(mnist_10k[, -1], perplexity = 50, max_iter = 1500)
+# Prepare the data.frame
+tsne_plot <- data.frame(tsne_x = tsne$Y[1:5000, 1], 
+                        tsne_y = tsne$Y[1:5000, 2], 
+                        digit = as.factor(mnist_10k[1:5000, ]$label))
+
+# Plot the obtained embedding
+ggplot(tsne_plot, aes(x = tsne_x, y = tsne_y, color = digit)) + 
+	ggtitle("MNIST embedding of the first 5K digits") + 
+	geom_text(aes(label = digit)) + 
+	theme(legend.position="none")
+```
+
+
+## Computing the centroids of each class
+
+Since the previous visual representation of the digit in 
+a low dimensional space makes sense, you want to compute the
+centroid of each class in this lower dimensional space. This
+centroid can be used as a prototype of the digit and you can 
+classify new digits based on their Euclidean distance to these ones.
+The MNIST data mnist_10k and t-SNE output tsne are available in the workspace. 
+The data.table package has been loaded for you.
+
+
+```{r}
+# Get the first 5K records and set the column names
+dt_prototypes <- as.data.table(tsne$Y[1:5000,])
+setnames(dt_prototypes, c("X","Y"))
+
+# Paste the label column as factor
+dt_prototypes[, label := as.factor(mnist_10k[1:5000,]$label)]
+
+# Compute the centroids per label
+dt_prototypes[, mean_X := mean(X), by = label]
+dt_prototypes[, mean_Y := mean(Y), by = label]
+
+# Get the unique records per label
+dt_prototypes <- unique(dt_prototypes, by = "label")
+dt_prototypes
+```
+
+
+## Computing similarities of digits 1 and 0
+
+One way to measure the label similarity for each digit is by computing 
+the Euclidean distance in the lower dimensional space obtained from the
+t-SNE algorithm. You need to use the previously calculated centroids stored 
+in dt_prototypes and compute the Euclidean distance to the centroid of digit
+1 for the last 5000 records from tsne and mnist_10k datasets that are labeled either as 1 or 0.
+Note that the last 5000 records of tsne were not used before.
+The MNIST data mnist_10k and t-SNE output tsne are available in the workspace. 
+The data.table package has been loaded for you.
+
+
+```{r}
+# Store the last 5000 records in distances and set column names
+distances <- as.data.table(tsne$Y[5001:10000,])
+setnames(distances, c("X", "Y"))
+# Paste the true label
+distances[, label := mnist_10k[5001:10000,]$label]
+distances[, mean_X := mean(X), by = label]
+distances[, mean_Y := mean(Y), by = label]
+
+
+# Filter only those labels that are 1 or 0 
+distances_filtered <- distances[label == 1 | label == 0]
+
+# Compute Euclidean distance to prototype of digit 1
+distances_filtered[, dist_1 := sqrt( (X - dt_prototypes[label == 1,]$mean_X)^2 + 
+                             (Y - dt_prototypes[label == 1,]$mean_Y)^2)]
+```
+
+## Plotting similarities of digits 1 and 0
+In distances, the distances of 1108 records to the centroid 
+of digit 1 are stored in dist_1. Those records correspond to digits
+you already know are 1's or 0's. You can have a look at the basic
+statistics of the distances from records that you know are 0 and 1
+(label column) to the centroid of class 1 using summary(). Also, 
+if you plot a histogram of those distances and fill them with the
+label you can check if you are doing a good job identifying the 
+two classes with this t-SNE classifier.
+The data.table and ggplot2 packages, as well as the distances object, have been loaded for you.
+
+
+```{r}
+# Compute the basic statistics of distances from records of class 1
+summary(distances_filtered[label == 1]$dist_1)
+
+# Compute the basic statistics of distances from records of class 0
+summary(distances_filtered[label == 0]$dist_1)
+
+# Plot the histogram of distances of each class
+ggplot(distances_filtered, 
+       aes(x = dist_1, fill = as.factor(label))) +
+    geom_histogram(binwidth = 5, alpha = .5, 
+                   position = "identity", show.legend = FALSE) + 
+  	ggtitle("Distribution of Euclidean distance 1 vs 0")
+```
+
+
+
+## Exploring credit card fraud dataset
+In this exercise, you will do some data exploration on
+a sample of the credit card fraud detection dataset from Kaggle. 
+For any problem, starting with some data exploration is a
+good practice and helps us better understand the characteristics of the data.
+
+The credit card fraud dataset is already loaded in the environment
+as a data table with the name creditcard. As you saw in the video, 
+it consists of 30 numerical variables. The Class column indicates if the transaction is fraudulent.
+The ggplot2 package has been loaded for you.
+
+
+```{r}
+
+load("creditcard.RData") 
+
+setDT(creditcard)
+# Look at the data dimensions
+dim(creditcard)
+
+# Explore the column names
+#names(creditcard)
+
+# Explore the structure
+#str(creditcard)
+
+# Generate a summary
+summary(creditcard)
+
+# Plot a histogram of the transaction time
+ggplot(creditcard, aes(x = Time)) + 
+	geom_histogram()
+```
+
+
+## Generating training and test sets
+Before we can apply the t-SNE algorithm to perform 
+a dimensionality reduction, we need to split the original data 
+into a training and test set. Next, we will perform an under-sampling
+of the majority class and generate a balanced training set.
+Generating a balanced dataset is a good practice when we are using tree-based models.
+In this exercise you already have the creditcard dataset loaded in the environment.
+The ggplot2 and data.table packages are already loaded.
+
+```{r}
+# Extract positive and negative instances of fraud
+creditcard_pos <- creditcard[Class == 1]
+creditcard_neg <- creditcard[Class == 0]
+
+# Fix the seed
+set.seed(1234)
+
+# Create a new negative balanced dataset by undersampling
+creditcard_neg_bal <- creditcard_neg[sample(1:nrow(creditcard_neg), nrow(creditcard_pos))]
+
+# Generate a balanced train set
+creditcard_train <- rbind(creditcard_pos, creditcard_neg_bal)
+```
+
+
+## Training a random forest with original features
+
+In this exercise, we are going to train a random forest model
+using the original features from the credit card dataset. The goal 
+is to detect new fraud instances in the future and we are doing 
+that by learning the patterns of fraud instances in the balanced 
+training set. Remember that a random forest can be trained with the following piece of code:
+randomForest(x = features, y = label, ntree = 100)
+The only pre-processing that has been done to the original features was
+to scale the Time and Amount variables. You have the balanced training 
+dataset available in the environment as creditcard_train. The randomForest package has been loaded.
+
+
+```{r}
+# Fix the seed
+set.seed(1234)
+library(randomForest)
+# Separate x and y sets
+train_x <- creditcard_train[,-31]
+train_y <- creditcard_train$Class %>% as.factor()
+
+# Train a random forests
+rf_model <- randomForest(x = train_x, y = train_y, ntree = 100)
+
+# Plot the error evolution and variable importance
+plot(rf_model, main = "Error evolution vs number of trees")
+# Fix the seed
+set.seed(1234)
+
+# Separate x and y sets
+train_x <- creditcard_train[,-31]
+train_y <- creditcard_train$Class %>%as.factor()
+
+# Train a random forests
+rf_model <- randomForest(x = train_x, y = train_y, ntree = 100)
+
+# Plot the error evolution and variable importance
+plot(rf_model, main = "Error evolution vs number of trees")
+legend("topright", colnames(rf_model$err.rate),col=1:3,cex=0.8,fill=1:3)
+
+varImpPlot(rf_model, main = "Variable importance")
+```
+
+
+
+## Computing and visualising the t-SNE embedding
+
+In this exercise, we are going to generate a t-SNE embedding using 
+only the balanced training set creditcard_train. The idea is to train
+a random forest using the two coordinates of the generated embedding 
+instead of the original 30 dimensions. Due to computational restrictions,
+we are going to compute the embedding of the training data only, but note 
+that in order to generate predictions from the test set we should compute 
+the embedding of the test set together with the train set.
+Then, we will visualize the obtained embedding highlighting the two classes
+in order to clarify if we can differentiate between fraud and non-fraud transactions.
+The creditcard_train data, as well as the Rtsne and ggplot2 packages, have been loaded.
+
+
+
+```{r}
+# Set the seed
+#set.seed(1234)
+
+# Generate the t-SNE embedding 
+creditcard_train[, Time := scale(Time)]
+nms <- names(creditcard_train)
+pred_nms <- nms[nms != "Class"]
+range01 <- function(x){(x-min(x))/(max(x)-min(x))}
+creditcard_train[, (pred_nms) := lapply(.SD ,range01), .SDcols = pred_nms]
+
+tsne_output <- Rtsne(as.matrix(creditcard_train[, -31]), check_duplicates = FALSE, PCA = FALSE)
+
+# Generate a data frame to plot the result
+tsne_plot <- data.frame(tsne_x = tsne_output$Y[,1],
+                        tsne_y = tsne_output$Y[,2],
+                        Class = creditcard_train$Class)
+
+# Plot the embedding usign ggplot and the label
+ggplot(tsne_plot, aes(x = tsne_x, y = tsne_y, color = factor(Class))) + 
+  ggtitle("t-SNE of credit card fraud train set") + 
+  geom_text(aes(label = Class)) + theme(legend.position = "none")
+```
+
+
+## Training a random forest with embedding features
+
+In this exercise, we are going to train a random forest model
+using the embedding features from the previous t-SNE embedding. 
+So, in this case, we are going to use a two-dimensional dataset 
+that has been generated from the original input features.
+In the rest of the chapter, we are going to verify if we have a worse, 
+similar, or better performance for this model in comparison to the random
+forest trained with the original features.
+In the environment two objects named train_tsne_x and train_tsne_y that 
+contain the features and the Class variable are available. The randomForest
+package has been loaded as well.
+
+
+```{r}
+# Fix the seed
+set.seed(1234)
+train_tsne_x <- tsne_output$Y
+# Train a random forest
+rf_model_tsne <- randomForest(x = train_tsne_x, y = train_y, ntree = 100)
+
+# Plot the error evolution
+
+plot(rf_model_tsne)
+
+# Plot the variable importance
+varImpPlot(rf_model_tsne)
+```
+
+## Predicting data using original features
+In this exercise, we are using the random forest trained with the 
+original features and generate predictions using the test set. These
+predictions will be plotted to see the distribution and will be evaluated
+using the ROCR package by considering the area under the curve.
+
+The random forest model, named rf_model, and the test set, named
+creditcard_test, are available in the environment. The randomForest
+and ROCR packages have been loaded for you
+
+
+```{r}
+# Predict on the test set using the random forest 
+creditcard_test <- creditcard
+pred_rf <- predict(rf_model, creditcard_test, type = "prob")
+
+# Plot a probability distibution of the target class
+hist(pred_rf[,2])
+library(ROCR)
+# Compute the area under the curve
+pred <-  prediction(pred_rf[,2], creditcard_test$Class)
+perf <- performance(pred, measure = "auc") 
+perf@y.values
+```
+
+## Predicting data using embedding random forest
+
+Now, we are going to do the same analysis, but instead of using 
+the random forest trained with the original features, we will 
+make predictions using the random forest trained with the t-SNE embedding coordinates.
+The random forest model is pre-loaded in an object named rf_model_tsne and the t-SNE
+embedding features from the original test set are stored in the object test_x. Finally, 
+the test set labels are stored in creditcard_test. The randomForest and ROCR packages have been loaded for you.
+
+
+```{r}
+
+
+creditcard_test[, (pred_nms) := lapply(.SD ,range01), .SDcols = pred_nms]
+
+tsne_output <- Rtsne(as.matrix(creditcard_test[, -31]), check_duplicates = FALSE, PCA = FALSE)
+
+test_x <- tsne_output$Y
+# Predict on the test set using the random forest generated with t-SNE features
+pred_rf <- predict(rf_model_tsne, test_x, type = "prob")
+
+# Plot a probability distibution of the target class
+hist(pred_rf[, 2])
+
+# Compute the area under the curve
+pred <- prediction(pred_rf[, 2] , creditcard_test$Class)
+perf <- performance(pred, measure = "auc") 
+perf@y.values
+```
+
+## Exploring neural network layer output
+In this exercise, we will have a look at the data that is being
+generated in a specific layer of a neural network. In particular, 
+this data corresponds to the third layer, composed of 128 neurons, 
+of a neural network trained with the balanced credit card fraud dataset
+generated before. The goal of the exercise is to perform an exploratory data analysis.
+
+
+```{r}
+# Observe the dimensions
+#dim(layer_128_train)
+
+# Show the first six records of the last ten columns
+#head(layer_128_train[, 119:128])
+
+# Generate a summary of all columns
+#summary(layer_128_train)
+```
+
+
+## Using t-SNE to visualise a neural network layer
+Now, we would like to visualize the patterns obtained from the neural 
+network model, in particular from the last layer of the neural network. 
+As we mentioned before this last layer has 128 neurons and we have pre-loaded 
+the weights of these neurons in an object named layer_128_train. The goal
+is to compute a t-SNE embedding using the output of the neurons from this
+last layer and visualize the embedding colored according to the class.
+The Rtsne and ggplot2 packages as well as the layer_128_train and creditcard_train have been loaded for you
+
+```{r}
+# Set the seed
+set.seed(1234)
+
+# Generate the t-SNE
+#tsne_output <- Rtsne(as.matrix(layer_128_train), check_duplicates = FALSE, max_iter = 400, perplexity = 50)
+
+# Prepare data.frame
+#tsne_plot <- data.frame(tsne_x = tsne_output$Y[, 1], tsne_y = tsne_output$Y[, 2], 
+#                        Class = creditcard_train$Class)
+
+# Plot the data 
+# ggplot(tsne_plot, aes(x = tsne_x, y = tsne_y, color = Class)) + 
+# 	geom_point() + 
+# 	ggtitle("Credit card embedding of Last Neural Network Layer")
+```
+
+
+## Using t-SNE to visualise a neural network layer
+Now, we would like to visualize the patterns obtained 
+from the neural network model, in particular from the last 
+layer of the neural network. As we mentioned before this last 
+layer has 128 neurons and we have pre-loaded the weights of
+these neurons in an object named layer_128_train. The goal
+is to compute a t-SNE embedding using the output of the neurons
+from this last layer and visualize the embedding colored according to the class.
+The Rtsne and ggplot2 packages as well as the layer_128_train and creditcard_train have been loaded for you
+
+
+```{r}
+# Set the seed
+# set.seed(1234)
+# 
+# # Generate the t-SNE
+# tsne_output <- Rtsne(as.matrix(layer_128_train), check_duplicates = FALSE, max_iter = 400, perplexity = 50)
+# 
+# # Prepare data.frame
+# tsne_plot <- data.frame(tsne_x = tsne_output$Y[, 1], tsne_y = tsne_output$Y[, 2], 
+#                         Class = creditcard_train$Class)
+# 
+# # Plot the data 
+# ggplot(tsne_plot, aes(x = tsne_x, y = tsne_y, color = Class)) + 
+# 	geom_point() + 
+# 	ggtitle("Credit card embedding of Last Neural Network Layer")
+```
+
+
+## Exploring fashion MNIST
+The Fashion MNIST dataset contains grayscale images 
+of 10 clothing categories. The first thing to do when 
+you are analyzing a new dataset is to perform an exploratory
+data analysis in order to understand the data.
+A sample of the fashion MNIST dataset fashion_mnist,
+with only 500 records, is pre-loaded for you.
+
+```{r}
+library(data.table)
+#load("fashion_mnist_500.RData")
+fashion_mnist <- fread(unzip("fashionmnist.zip", "fashion-mnist_train.csv"))
+set.seed(100)
+
+ind <- sample(1:nrow(fashion_mnist), 1000)
+
+fashion_mnist <- fashion_mnist[ind, ]
+# Show the dimensions
+dim(fashion_mnist)
+
+# Create a summary of the last six columns 
+summary(fashion_mnist[, 780:785])
+
+# Table with the class distribution
+table(fashion_mnist$label)
+```
+
+
+## Visualizing fashion MNIST
+In this exercise, we are going to visualize an example 
+image of the fashion MNIST dataset. Basically, we are going to plot the 28x28 pixels values.
+To do this we use:
+
+A custom ggplot theme named plot_theme.
+A data structure named xy_axis where the pixels values are stored.
+A character vector named class_names with the names of each class.
+The fashion_mnist dataset with 500 examples is available in the workspace. 
+The `ggplot2 package is loaded.
+Note that you can access the definition of the 
+custom theme by typing plot_theme in the console.
+
+```{r}
+library(tidyverse)
+plot_theme <- list(
+    raster = geom_raster(hjust = 0, vjust = 0),
+    gradient_fill = scale_fill_gradient(low = "white",
+                                        high = "black", guide = FALSE),
+    theme = theme(axis.line = element_blank(),
+                  axis.text = element_blank(),
+                  axis.ticks = element_blank(),
+                  axis.title = element_blank(),
+                  panel.background = element_blank(),
+                  panel.border = element_blank(),
+                  panel.grid.major = element_blank(),
+                  panel.grid.minor = element_blank(),
+                  plot.background = element_blank()))
+```
+
+
+```{r}
+class_names <-  c("T-shirt/top", "Trouser", "Pullover", 
+                  "Dress", "Coat", "Sandal", "Shirt",
+                  "Sneaker", "Bag", "Ankle", "boot")
+
+
+xy_axis <- data.frame(x = expand.grid(1:28, 28:1)[,1],
+                      y = expand.grid(1:28, 28:1)[,2])
+
+# Get the data from the last image
+plot_data <- cbind(xy_axis, fill = as.data.frame(t(fashion_mnist[500, -1]))[,1])
+
+# Observe the first records
+head(plot_data)
+
+# Plot the image using ggplot()
+ggplot(plot_data, aes(x, y, fill = fill)) + 
+  ggtitle(class_names[as.integer(fashion_mnist[500, 1])]) + 
+  plot_theme 
+```
+
+
+## Reducing data with GLRM
+
+We are going to reduce the dimensionality of the fashion
+MNIST sample data using the GLRM implementation of h2o.
+In order to do this, in the next steps we are going to:
+Start a connection to a h2o cluster by invoking the method h2o.init().
+Store the fashion_mnist data into the h2o cluster with as.h2o().
+Launch a GLRM model with K=2 (rank-2 model) using the h2o.glrm() function.
+As we have discussed in the video session, it is important to check
+the convergence of the objective function. Note that here we
+are also fixing the seed to ensure the same results.
+The h2o package and fashion_mnist data are pre-loaded in the environment.
+
+
+```{r}
+library(h2o)
+# Start a connection with the h2o cluster
+h2o.init()
+
+# Store the data into h2o cluster
+fashion_mnist.hex <- as.h2o(fashion_mnist, "fashion_mnist.hex")
+
+# Launch a GLRM model over fashion_mnist data
+model_glrm <- h2o.glrm(training_frame = fashion_mnist.hex,
+                       cols = 2:ncol(fashion_mnist), 
+                       k = 2,
+                       seed = 123,
+                       max_iterations = 2100)
+
+# Plotting the convergence
+plot(model_glrm)
+```
+
+## Improving model convergence
+In the previous exercise, we didn't get good convergence
+values for the GLRM model. Improving convergence values
+can sometimes be achieved by applying a transformation 
+to the input data. In this exercise, we are going to 
+normalize the input data before we start building the GLRM model.
+This can be achieved by setting the transform parameter of
+h2o.glrm() equal to "NORMALIZE".
+The h2o package and fashion_mnist dataset are pre-loaded.
+
+```{r}
+# Start a connection with the h2o cluster
+#h2o.init()
+
+# Store the data into h2o cluster
+#fashion_mnist.hex <- as.h2o(fashion_mnist, "fashion_mnist.hex")
+
+# Launch a GLRM model with normalized fashion_mnist data  
+model_glrm <- h2o.glrm(training_frame = fashion_mnist.hex, 
+                       transform = "NORMALIZE",
+                       cols = 2:ncol(fashion_mnist), 
+                       k = 2, 
+                       seed = 123,
+                       max_iterations = 2100)
+
+# Plotting the convergence
+plot(model_glrm)
+```
+
+
+## Visualizing the output of GLRM
+A GLRM model generates the X and Y matrixes. In this exercise,
+we are going to visualize the obtained low-dimensional 
+representation of the input records in the new K-dimensional space.
+The output of the X matrix from the previous GLRM model has been loaded with the name X_matrix. This matrix has been obtained by calling:
+
+```{r}
+X_matrix <- as.data.table(h2o.getFrame(model_glrm@model$representation_name))
+# Dimension of X_matrix
+dim(X_matrix)
+
+# First records of X_matrix
+head(X_matrix)
+
+# Plot the records in the new two dimensional space
+ggplot(as.data.table(X_matrix), aes(x= Arch1, y = Arch2, color =  fashion_mnist$label)) + 
+	ggtitle("Fashion Mnist GLRM Archetypes") + 
+	geom_text(aes(label =  fashion_mnist$label)) + 
+	theme(legend.position="none")
+```
+
+## Visualizing the prototypes
+Now, we are going to compute the centroids of the coordinates
+for each of the two archetypes for each label. We did something 
+similar before for the t-SNE embedding. The goal is to have a representation or prototype of each label in this new two-dimensional space.
+
+The ggplot2 and data.table packages are pre-loaded, as well as the X_matrix object and the fashion_mnist dataset.
+
+```{r}
+# Store the label of each record and compute the centroids
+X_matrix[, label := as.numeric(fashion_mnist$label)]
+X_matrix[, mean_x := mean(Arch1), by = label]
+X_matrix[, mean_y := mean(Arch2), by = label]
+
+# Get one record per label and create a vector with class names
+X_mean <- unique(X_matrix, by = "label")
+
+label_names <- c("T-shirt/top", "Trouser", "Pullover",
+                 "Dress", "Coat", "Sandal", "Shirt", 
+                 "Sneaker", "Bag", "Ankle boot")
+
+# Plot the centroids
+X_mean[, label := factor(label, levels = 0:9, labels = label_names)]
+ggplot(X_mean, aes(x = mean_x, y = mean_y, color = label_names)) + 
+	ggtitle("Fashion Mnist GLRM class centroids") + 
+	geom_text(aes(label = label_names)) +
+	theme(legend.position = "none")
+```
+
+## Imputing missing data
+In this exercise, we will use GLRM to impute missing data.
+We are going to build a GLRM model from a dataset named 
+fashion_mnist_miss, where 20% of values are missing. 
+The goal is to fill these values by making a prediction 
+using h2o.predict() with the GLRM model.
+In this exercise an h2o instance is already running,
+so it is not necessary to call h2o.init().
+The h2o package and fashion_mnist_miss have been loaded
+
+```{r}
+fashion_mnist_miss <- h2o.insertMissingValues(fashion_mnist.hex, 
+                                              fraction = 0.2, seed = 1234)
+
+# Store the input data in h2o
+fashion_mnist_miss.hex <- as.h2o(fashion_mnist_miss, "fashion_mnist_miss.hex")
+
+# Build a GLRM model
+model_glrm <- h2o.glrm(training_frame = fashion_mnist_miss.hex,
+                       k = 2,
+                       transform = "NORMALIZE",
+                       max_iterations = 100)
+
+# Impute missing values
+fashion_pred <- predict(model_glrm, fashion_mnist_miss.hex)
+
+# Observe the statistics of the first 5 pixels
+summary(fashion_pred[, 1:5])
+```
+
+##Training a random forest with original data
+
+In this exercise, we are going to train a random forest
+using the original fashion MNIST dataset with 500 examples. 
+This dataset is preloaded in the environment with the name
+fashion_mnist. We are going to train a random forest with 
+20 trees and we will look at the time it takes to compute
+the model and the out-of-bag error in the 20th tree.
+The randomForest package is loaded.
+
+```{r}
+# Get the starting timestamp
+library(randomForest)
+
+time_start <- proc.time()
+
+# Train the random forest
+fashion_mnist[, label := factor(label)]
+rf_model <- randomForest(label~., ntree = 20,
+                         data = fashion_mnist)
+
+# Get the end timestamp
+time_end <- timetaken(time_start)
+
+# Show the error and the time
+rf_model$err.rate[20]
+time_end
+```
+
+## Training a random forest with compressed data
+Now, we are going to train a random forest using a
+compressed representation of the previous 500 input 
+records, using only 8 dimensions!
+
+In this exercise, you a dataset named train_x that contains
+the compressed training data and another one named train_y
+that contains the labels are pre-loaded. We are going to 
+calculate computation time and accuracy, similar to what 
+was done in the previous exercise. Since the dimensionality 
+of this dataset is much smaller, we can train a random 
+forest using 500 trees in less time.
+The randomForest package is already loaded.
+
+```{r}
+
+model_glrm <- h2o.glrm(training_frame = fashion_mnist.hex, 
+                       transform = "NORMALIZE",
+                       cols = 2:ncol(fashion_mnist), 
+                       k = 8, 
+                       seed = 123,
+                       max_iterations = 1000)
+
+train_x <- as.data.table(h2o.getFrame(model_glrm@model$representation_name))
+train_y <- fashion_mnist$label %>% as.factor()
+```
+
+
+```{r}
+library(randomForest)
+# Get the starting timestamp
+time_start <- proc.time()
+
+# Train the random forest
+rf_model <- randomForest(x = train_x, y = train_y, ntree = 500)
+
+# Get the end timestamp
+time_end <- timetaken(time_start)
+
+
+# Show the error and the time
+rf_model$err.rate[500]
+time_end
+```
+
