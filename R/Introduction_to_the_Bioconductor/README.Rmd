@@ -1,0 +1,224 @@
+---
+title: "Introduction to the Bioconductor"
+author: "Mburu"
+date: "5/27/2020"
+output:
+  github_document:
+    df_print: paged
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+## Current version is using bioc manager
+# Bioconductor version
+
+In the video, you learned about the Bioconductor project. 
+One advantage of this fantastic resource is its continuous improvements,
+reflected in scheduled releases. Hence, checking the current version is 
+important for the reproducibility of your analysis.
+
+Important note: For this course, you will be using the BiocInstaller 
+package to install and check package versions, as we will be using 
+Bioconductor version 3.6. For details on the latest Bioconductor installation 
+instructions see Bioconductor install page.
+
+The package BiocInstaller has been installed using 
+source("https://bioconductor.org/biocLite.R"). Remember, you can 
+check the Bioconductor version using the function biocVersion() 
+from the BiocInstaller package.
+
+
+```{r}
+# Load the BiocInstaller package
+#install.packages("BiocManager")
+
+library(BiocManager)
+
+# Check R version
+#version
+sessionInfo()
+
+# Explicit syntax to check the Bioconductor version
+BiocManager::version()
+```
+
+
+## BiocLite to install packages
+As example to install packages we will use the BSgenome package.
+This is a data package which contains representations of several genomes.
+When you install a new package it usually calls installations for its 
+dependencies that takes some time, hence we have already installed BSgenome for you to use on this exercise.
+
+Note: Using Bioconductor version 3.7 or earlier, packages can be installed using the following code:
+
+# Using Bioconductor version 3.6
+source("https://bioconductor.org/biocLite.R")
+biocLite("BSgenome")
+
+# Load the package
+library(BSgenome)
+For versions 3.8 or higher, you will use the BiocManager instead.
+
+For this exercise, you should not use source() or biocLite() to install BSgenome.
+This has already been done for you.
+
+You can load the package using library(packageName) and check 
+the package's version using the function packageVersion("packageName")
+
+```{r}
+#install("BSgenome")
+# Load the BSgenome package
+library(BSgenome)
+
+# Check the version of the BSgenome package
+packageVersion("BSgenome")
+
+
+
+```
+
+# S4 class definition
+
+We will use the class BSgenome, which is already loaded for you.
+
+Let's check the formal definition of this class by using the 
+function showClass("className"). Check the BSgenome class results 
+and find its parent classes (Extends) and the classes that inherit from it (Subclasses).
+
+* Well done! The BSgenome is a powerful class and inherits from 
+GenomeDescription, which you will see later on, and has MaskedBSgenome as subclass.
+
+```{r}
+showClass("BSgenome")
+```
+
+
+# Interaction with classes
+Let's say we have an object called a_genome from class BSgenome.
+With a_genome, you can ask questions like these:
+
+# What is a_genome's main class?
+class(a_genome)  # "BSgenome"
+
+# What is a_genome's other classes?
+is(a_genome)  # "BSgenome", "GenomeDescription"
+
+# Is a_genome an S4 representation?
+isS4(a_genome)  # TRUE
+If you want to find out more about the a_genome object,
+you can use the accessor show(a_genome) or use other specific 
+accessors from the list of .S4methods(class = "BSgenome").
+
+* Keep up the good work! You can now check other objects and 
+investigate if they are S4 objects, their classes, and their
+accessors. Remember, you can use .S4methods() or showMethods() 
+to check the accessors list of a class or a function.
+
+
+```{r}
+# Investigate the a_genome using show()
+# Read a_genome
+library(BSgenome.Scerevisiae.UCSC.sacCer3)
+a_genome <- BSgenome.Scerevisiae.UCSC.sacCer3
+show(a_genome)
+
+# Investigate some other accesors
+organism(a_genome)
+provider(a_genome)
+seqinfo(a_genome)
+```
+
+# Discovering the Yeast genome
+
+Let's continue to explore the yeast genome using the package 
+BSgenome.Scerevisiae.UCSC.sacCer3 which is already installed for you.
+
+As with other data in R, we can use head() and tail() to explore 
+the yeastGenome object. We can also subset the genome by chromosome by using `$` as follows: 
+object_name `$` chromosome_name. If you need the names of the chromosomes use the names() function.
+Another nifty function is nchar(), used to count the number of characters in a sequence.
+
+```{r}
+# Load the yeast genome
+library(BSgenome.Scerevisiae.UCSC.sacCer3)
+
+# Assign data to the yeastGenome object
+yeastGenome <- BSgenome.Scerevisiae.UCSC.sacCer3
+
+# Get the head of seqnames and tail of seqlengths for yeastGenome
+head(seqnames(yeastGenome))
+tail(seqlengths(yeastGenome))
+
+# Print chromosome M, alias chrM
+yeastGenome$chrM
+
+# Count characters of the chrM sequence
+nchar(yeastGenome$chrM)
+```
+
+## Partitioning the Yeast genome
+
+Genomes are often big, but interest usually lies in specific 
+regions of them. Therefore, we need to subset a genome by extracting 
+parts of it. To pick a sequence interval use getSeq() and specify the
+name of the chromosome, and the start and end of the sequence interval:
+
+getSeq(yeastGenome, names = "chrI", start = 100, end = 150)
+Notice that names is optional; if not specified, it will return all 
+chromosomes. The parameters start and end are also optional and, if 
+not specified, will take the default values 1 and the length of the sequence respectively.
+
+* Congratulations, this might have been the beginning of your first sequence analysis!
+```{r}
+# Load the yeast genome
+#library(BSgenome.Scerevisiae.UCSC.sacCer3)
+
+# Assign data to the yeastGenome object
+#yeastGenome <- BSgenome.Scerevisiae.UCSC.sacCer3
+
+# Get the first 30 bases of each chromosome
+getSeq(yeastGenome, start = 1, end = 30)
+```
+
+
+# Partitioning the Yeast genome
+
+Genomes are often big, but interest usually lies in specific 
+regions of them. Therefore, we need to subset a genome by extracting 
+parts of it. To pick a sequence interval use getSeq() and specify the
+name of the chromosome, and the start and end of the sequence interval:
+
+getSeq(yeastGenome, names = "chrI", start = 100, end = 150)
+Notice that names is optional; if not specified, it will return all 
+chromosomes. The parameters start and end are also optional and, if
+not specified, will take the default values 1 and the length of the sequence respectively.
+
+* The University of California, Santa Cruz (UCSC) Genome Browser
+has made available the most genomes for BSgenome, totaling 74 of various species!
+
+
+## Exploring the Zika virus sequence
+It's your turn to explore the Zika virus genome, 
+which has been loaded in your workspace as zikaVirus. 
+The genome was downloaded from NCBI and you can apply 
+Biostrings functions to learn more about it.
+
+Start by checking the alphabet of the sequence.
+
+alphabet() # Shows the letters included in the sequence
+alphabetFrequency() # Shows the counts per letter
+Remember from the video that each alphabet corresponds
+to a specific biostring container, and each alphabet 
+usually has extra code letters and symbols.
+
+```{r}
+library(Biostrings)
+zikaVirus <-data.table::fread("zika_genomic.fa.txt")
+zikaVirus <- zikaVirus$`>NC_012532.1 Zika virus isolate ZIKV/Monkey/Uganda/MR766/1947, complete genome`
+zikaVirus <- DNAString(zikaVirus)
+```
+

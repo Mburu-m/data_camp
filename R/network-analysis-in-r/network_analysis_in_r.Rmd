@@ -1,0 +1,45 @@
+---
+title: "Network analysis in r"
+author: "Mburu"
+date: "6/19/2020"
+output: github_document: null
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# Creating an igraph object
+
+Here you will learn how to create an igraph 'object' from data stored in an edgelist. The data are friendships in a group of students. You will also learn how to make a basic visualization of the network.
+
+Each row of the friends dataframe represents an edge in the network.
+```{r}
+library(tidyverse)
+library(data.table)
+friends <- fread("friends.csv")
+
+```
+
+```{r, fig.width= 8}
+# Load igraph
+library(igraph)
+
+# Inspect the first few rows of the dataframe 'friends'
+head(friends)
+
+# Convert friends dataframe to a matrix
+friends.mat <- as.matrix(friends)
+
+# Convert friends matrix to an igraph object
+g <- graph.edgelist(friends.mat, directed = FALSE)
+
+
+# Make a very basic plot of the network
+plot(g)
+
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
